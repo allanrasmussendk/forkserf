@@ -949,6 +949,10 @@ Game::update_game_stats() {
 void
 Game::update() {
 
+  //int i = (get_tick() >> 3) & 254;
+  //int i = (get_tick() >> 3) & 19;
+  //      Log::Info["game.cc"] << "TEST TEST TEST pigfarm i = " << i;
+
 /*
   Log::Info["game"] << "option_EnableAutoSave is " << option_EnableAutoSave;
   Log::Info["game"] << "option_ImprovedPigFarms is " << option_ImprovedPigFarms;
