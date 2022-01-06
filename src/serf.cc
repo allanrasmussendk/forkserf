@@ -956,6 +956,8 @@ Serf::switch_waiting(Direction dir) {
   if ((state == StateTransporting || state == StateWalking ||
        state == StateDelivering) &&
       s.walking.dir < 0) {
+    //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging 
+    //s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
     s.walking.dir = reverse_direction(dir);
     return 1;
   } else if ((state == StateFreeWalking ||
@@ -1073,81 +1075,13 @@ Serf::change_direction(Direction dir, int alt_end) {
                                       map->get_height(pos), (Direction)dir,
                                       0);
         // set the passenger's walking (facing) direction to match the sailor so its animation looks right
+        //if (passenger->s.walking.dir >= 0){passenger->s.walking.prev_dir = passenger->s.walking.dir;} // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+        passenger->s.walking.prev_dir = passenger->s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
         passenger->s.walking.dir = reverse_direction(dir);
         // normally this would be handled in handle_serf_passenger_in_boat but that is never called because
         ///  boat passengers are not attached to any map position
       }
   }
-  /*  MOVED ELSEWHERE FOR IMMEDIATE DROPOFF, DELETE THIS SECTION ONCE VALIDATED  
-  // handle sailor just dropped a passenger off at a flag *and sailor is now one pos away*
-  //  now that the sailor is free of the flag pos, the serf must be placed there and the sailor dropped_serf_ vars cleared
-  //  the !map->has_flag(pos) here check prevents this from triggering the second the passenger is dropped
-  if (type == Serf::TypeSailor && state == State::StateTransporting
-    && s.transporting.dropped_serf_type > Type::TypeNone && s.transporting.dropped_serf_index > 0
-    && !map->has_flag(pos)){
-     //Log::Info["serf"] << "debug: a transporting sailor inside change_direction, just reached the next water-path pos after dropping a passenger off";
-      
-      // retrace back one tile to the flag where serf was dropped
-      Direction tmpdir = DirectionNone;
-      for (Direction d : cycle_directions_cw()) {
-        // look for the path in the dir that is not the current dir
-        if (map->has_path_IMPROVED(pos, d) && d != dir) {
-          tmpdir = d;
-          break;
-        }
-      }
-      if (tmpdir == DirectionNone){
-        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away could not retrace water path to find flag!");
-      }
-
-      MapPos dropped_pos = map->move(pos, tmpdir);
-      if (map->has_serf(dropped_pos)){
-        Serf *blocking_error_serf = game->get_serf_at_pos(dropped_pos);
-        Log::Error["serf"] << "sailor dropped serf at at flag and is now one tile away but flag pos is not empty! a serf with type " << NameSerf[blocking_error_serf->get_type()] << ", index " << blocking_error_serf->get_index() << ", state " << blocking_error_serf->get_state();
-        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away but flag pos is not empty, so cannot make dropped serf appear there!");
-      }
-      if (!map->has_flag(dropped_pos)){
-        throw ExceptionFreeserf("sailor dropped serf at at flag and is now one tile away map thinks there is no flag at the dropped pos!");
-      }
-      // place the serf
-      // is s.transporting.xxxxx_serf_type even needed?  could just use serf->get_type() if the type is even ever needed?
-      //  I think only viewport uses it but even that already looks all serf types up by *Serf pointer
-      map->set_serf_index(dropped_pos, s.transporting.dropped_serf_index);
-      Serf *dropped_serf = game->get_serf(s.transporting.dropped_serf_index);
-      if (dropped_serf == nullptr){
-        Log::Warn["serf"] << "sailor dropped a serf off at flag at pos " << dropped_pos << " but got nullptr for the serf!  serf index: " << s.transporting.dropped_serf_index << " serf type: " << s.transporting.dropped_serf_type;
-      } else {
-        //Log::Info["serf"] << "sailor awakened serf that was dropped off at pos " << dropped_pos;
-        // is StateWalking a good default to use here?
-        dropped_serf->set_serf_state(StateWalking);
-        // serf->pos is not derived from map, it is also stored separately in Serf* object
-        //  need to set it
-        dropped_serf->pos = dropped_pos;
-        // I dunno why these walking states all seem backwards, ignoring for now??
-        //  set the dropped serf's dir to the reverse of the sailor's dir
-        //   so it isn't facing back towards the water road
-        // If this is not done, and the serf is still facing the water road, it will think it is waiting for a boat
-        // wait, this must be done earlier, right as the serf is dropped off NOT as the sailor reaches one tile away
-        //dropped_serf->s.walking.dir = reverse_direction((Direction)s.walking.dir);
-        // update the dropped serf's stored tick to current game tick or its next animation will cut to its end
-        dropped_serf->tick = game->get_tick();
-      }
-
-      // clear the hold on this flag position
-      //  THIS IS NOT IMPLEMENTED YET!
-      // it would be cleaner to simply set/clear the dropoff and pickup at flag bools rather than having tiny flag->functions that doe it
-      Flag *dropped_flag = game->get_flag_at_pos(dropped_pos);
-      dropped_flag->drop_off_serf();
-
-      // clear the sailor dropped_serf vars
-      s.transporting.dropped_serf_type = Type::TypeNone;
-      s.transporting.dropped_serf_index = 0;
-
-      // the dropped off passenger serf should now fully exist on the map at the flag at 
-      //  the end of the water path and resume going to his original destination
-  }
-      */
-
 
   // if *this* serf is a sailor (who is already in transporting state and so must be in his boat)...
   //  and if another serf is at the next pos in StateWaitForBoat AND is waiting in the direction of this serf
@@ -1219,6 +1153,8 @@ Serf::change_direction(Direction dir, int alt_end) {
        //Log::Info["serf"] << "debug: inside Serf::change_direction, setting flag at pos " << pos << " to has_serf_waiting_for_boat";
         water_flag->set_serf_waiting_for_boat();
         // still need to actually set the serf walking direction to the dir of the water path/boat it is waiting for
+        //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+        s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
         s.walking.dir = dir;
         return;
       }
@@ -1264,6 +1200,8 @@ Serf::change_direction(Direction dir, int alt_end) {
     animation = get_walking_animation(map->get_height(new_pos) -
                                       map->get_height(pos), (Direction)dir,
                                       0);
+    //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;};  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+    s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
     s.walking.dir = reverse_direction(dir);
 
     // handle sailor dropping a passenger serf off at a flag
@@ -1287,6 +1225,8 @@ Serf::change_direction(Direction dir, int alt_end) {
           //  need to set it
           dropped_serf->pos = pos;
           // set the dropped serf's walking dir to face away from the water path (i.e. the dir the sailor was facing before he turns back)
+          //if (dropped_serf->s.walking.dir >= 0){dropped_serf->s.walking.prev_dir = dropped_serf->s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+          dropped_serf->s.walking.prev_dir = dropped_serf->s.walking.dir;
           dropped_serf->s.walking.dir = dir;
           // update the dropped serf's stored tick to current game tick or its next animation will cut to its end
           dropped_serf->tick = game->get_tick();
@@ -1337,6 +1277,8 @@ Serf::change_direction(Direction dir, int alt_end) {
         animation = get_walking_animation(map->get_height(new_pos) -
                                           map->get_height(pos),
                                           (Direction)dir, 1);
+        //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+        s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
         s.walking.dir = reverse_direction(dir);
       }
     } else {
@@ -1346,6 +1288,8 @@ Serf::change_direction(Direction dir, int alt_end) {
       /* Wait for other serf */
       animation = 81 + dir;
       counter = counter_from_animation[animation];
+      //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+      s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
       s.walking.dir = dir-6;
       return;
     }
@@ -3201,6 +3145,8 @@ Serf::find_inventory() {
       set_state(StateWalking);
       s.walking.dir1 = -2;
       s.walking.dest = 0;
+      //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+      s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
       s.walking.dir = 0;
       counter = 0;
       return;
@@ -5239,6 +5185,8 @@ Serf::handle_serf_looking_for_geo_spot_state() {
   set_state(StateWalking);
   s.walking.dest = 0;
   s.walking.dir1 = -2;
+  //if (s.walking.dir >= 0){s.walking.prev_dir = s.walking.dir;}  // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
+  s.walking.prev_dir = s.walking.dir; // added to support smoother drawing of "followed sprite" animations such as for SerfsInBoats and pig farmer pannage/foraging
   s.walking.dir = 0;
   s.walking.wait_counter = 0;
   counter = 0;

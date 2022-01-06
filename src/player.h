@@ -95,7 +95,7 @@ class Player : public GameObject {
 
   Color color; /* ADDED */
   size_t face;
-  int flags;
+  int flags;  // this looks to be on/off "bools" not Flags as in game flags.  Bit-shifted
   int build;
   int completed_building_count[24];
   int incomplete_building_count[24];

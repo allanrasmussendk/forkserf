@@ -919,6 +919,21 @@ Viewport::draw_unharmed_building(Building *building, int lx, int ly) {
           if (pigs_count >= pigs_layout[p * 4]) {
             int i = (pigs_layout[p * 4 + 1]
                      + (interface->get_game()->get_tick() >> 3)) & 0xfe;
+            // pig sprites are game_object 161 through 172
+            //   a dead pig resource is game_object 001 and looks identical to 
+            //    pig anim 161 aside from a bit of background darkness around it
+            // 161  pig facing right feet pos 1
+            // 162  pig facing right feet pos 2
+            // 163  pig facing left feet pos 1
+            // 164  pig facing left feet pos 2
+            // 165  pig right head turned facing player
+            // 166  pig right head down to ground 1
+            // 167  pig right head down to ground 2
+            // 168  pig right head and body down to ground
+            // 169  pig right mid-roll
+            // 170  pig right on back feet pos 1
+            // 171  pig right on back feet pos 2
+            // 172  pig right on back feet pos 3
             draw_game_sprite(lx + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
                              ly + pigs_layout[p * 4 + 3], pigfarm_anim[i]);
           }
@@ -2340,7 +2355,152 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         if (draw_boat_pickup){ draw_row_serf(pickup_x, pickup_y, true, color, pickup_body);}
         if (draw_boat_dropoff){ draw_row_serf(dropoff_x, dropoff_y, true, color, dropoff_body);}
       }
+    } else if (serf->get_type() == Serf::TypePigFarmer){
+      // experimenting with pannage/pig foraging
 
+
+        static const int pigfarm_anim[] = {
+      0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa3, 0,
+      0xa2, 1, 0xa3, 1, 0xa2, 2, 0xa3, 2, 0xa2, 3, 0xa3, 3,
+      0xa2, 4, 0xa3, 4, 0xa6, 4, 0xa6, 4, 0xa6, 4, 0xa6, 4,
+      0xa4, 4, 0xa5, 4, 0xa4, 3, 0xa5, 3, 0xa4, 2, 0xa5, 2,
+      0xa4, 1, 0xa5, 1, 0xa4, 0, 0xa5, 0, 0xa2, 0, 0xa2, 0,
+      0xa6, 0, 0xa6, 0, 0xa6, 0, 0xa2, 0, 0xa7, 0, 0xa8, 0,
+      0xa7, 0, 0xa8, 0, 0xa7, 0, 0xa8, 0, 0xa7, 0, 0xa8, 0,
+      0xa7, 0, 0xa8, 0, 0xa7, 0, 0xa8, 0, 0xa7, 0, 0xa8, 0,
+      0xa7, 0, 0xa8, 0, 0xa7, 0, 0xa2, 0, 0xa2, 0, 0xa2, 0,
+      0xa2, 0, 0xa6, 0, 0xa6, 0, 0xa6, 0, 0xa6, 0, 0xa6, 0,
+      0xa6, 0, 0xa2, 0, 0xa2, 0, 0xa7, 0, 0xa8, 0, 0xa9, 0,
+      0xaa, 0, 0xab, 0, 0xac, 0, 0xad, 0, 0xac, 0, 0xad, 0,
+      0xac, 0, 0xad, 0, 0xac, 0, 0xad, 0, 0xac, 0, 0xad, 0,
+      0xac, 0, 0xad, 0, 0xac, 0, 0xad, 0, 0xac, 0, 0xab, 0,
+      0xaa, 0, 0xa9, 0, 0xa8, 0, 0xa7, 0, 0xa2, 0, 0xa2, 0,
+      0xa2, 0, 0xa2, 0, 0xa3, 0, 0xa2, 1, 0xa3, 1, 0xa2, 1,
+      0xa3, 2, 0xa2, 2, 0xa3, 2, 0xa7, 2, 0xa8, 2, 0xa7, 2,
+      0xa8, 2, 0xa7, 2, 0xa8, 2, 0xa7, 2, 0xa8, 2, 0xa7, 2,
+      0xa8, 2, 0xa7, 2, 0xa8, 2, 0xa7, 2, 0xa8, 2, 0xa7, 2,
+      0xa2, 2, 0xa2, 2, 0xa6, 2, 0xa6, 2, 0xa6, 2, 0xa6, 2,
+      0xa4, 2, 0xa5, 2, 0xa4, 1, 0xa5, 1, 0xa4, 0, 0xa5, 0,
+      0xa2, 0, 0xa2, 0 };
+
+
+
+      //      draw_game_sprite(lx + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
+      //          ly + pigs_layout[p * 4 + 3], pigfarm_anim[i]);
+      //
+      // pig sprites are game_object 161 through 172
+      //   a dead pig resource is game_object 001 and looks identical to 
+      //    pig anim 161 aside from a bit of background darkness around it
+      // 161  pig facing right feet pos 1
+      // 162  pig facing right feet pos 2
+      // 163  pig facing left feet pos 1
+      // 164  pig facing left feet pos 2
+      // 165  pig right head turned facing player
+      // 166  pig right head down to ground 1
+      // 167  pig right head down to ground 2
+      // 168  pig right head and body down to ground
+      // 169  pig right mid-roll
+      // 170  pig right on back feet pos 1
+      // 171  pig right on back feet pos 2
+      // 172  pig right on back feet pos 3
+
+          /* this might be useful here also
+          int passenger_sprite_offset[] = {
+            // these seem backwards - north/south reversed
+            // x, y pixel offset from sailor sprite
+             5,  1,   // dir 0  "East / Right"
+             5,  5,   // dir 1  "SouthEast / DownRight"
+            -5,  5,   // dir 2  "SouthWest / Down"
+            -5,  1,   // dir 3  "West / Left"
+            -3, -3,   // dir 4  "NorthWest / UpLeft"
+             3, -3,   // dir 5  "NorthEast / Up"
+          };
+          int passenger_dir = passenger_serf->get_walking_dir();
+          // draw the passenger in the boat, a dynamic offset that follows the boat along the tile
+          passenger_x = lx + passenger_sprite_offset[passenger_dir * 2];
+          passenger_y = ly + passenger_sprite_offset[passenger_dir * 2 + 1];
+          */
+
+         /*static const int counter_from_animation[] = {
+          // Walking (0-80) 
+          511, 447, 383, 319, 255, 319, 511, 767, 1023,
+          */
+
+      //draw_game_sprite(lx + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2], ly + pigs_layout[p * 4 + 3], pigfarm_anim[i]);
+      int anim_offset = interface->get_game()->get_tick() >> 3 & 1;
+      //Log::Info["viewport.cc"] << "pig anim_offest " << anim_offset;
+      // draw Pig
+      int pig_sprite_offset[] = {
+      // these seem backwards - north/south reversed
+        // x, y pixel offset from sailor sprite
+          10,  2,   // dir 0  "East / Right"
+          10, 10,   // dir 1  "SouthEast / DownRight"
+         -10, 10,   // dir 2  "SouthWest / Down"
+         -10,  2,   // dir 3  "West / Left"
+          -6, -6,   // dir 4  "NorthWest / UpLeft"
+           6, -6,   // dir 5  "NorthEast / Up"
+      };
+      //Log::Info["viewport.cc"] << "pig farmer dir " << serf->get_walking_dir() << ", last_dir " << serf->get_walking_prev_dir();
+      int serf_anim = serf->get_animation();
+      int serf_counter = serf->get_counter();
+
+      static const int walking_counter_from_animation[] = {
+      // copied from the beginning of counter_from_animation in Serf.cc
+      /* Walking (0-80) */
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      511, 447, 383, 319, 255, 319, 511, 767, 1023
+      };
+
+      int serf_counter_max = walking_counter_from_animation[serf_anim];
+      // the serf counter is reset whenever serf changes direction, but the number it resets to isn't clear (relates to tile height diff?)
+      // why are serf walking dirs backwards?
+      int serf_prev_dir = serf->get_walking_prev_dir();
+      int serf_dir = serf->get_walking_dir();
+      // handle waiting state
+      if (serf_dir < 0){
+        serf_dir += 6;
+        serf_dir = reverse_direction(Direction(serf_dir));  // why are serf walking dirs backwards?
+        serf_counter_max = 127;  // this is always 127 when waiting
+      }
+      //Log::Info["viewport.cc"] << "pig farmer dir " << serf->get_walking_dir() << ", last_dir " << serf->get_walking_prev_dir() << ", counter " << serf_counter << ", anim " << serf_anim;
+      int pig_x_off = 0;
+      int pig_y_off = 0;
+      // default to directly using offset with no smoothing
+      pig_x_off = pig_sprite_offset[serf_dir*2];
+      pig_y_off = pig_sprite_offset[serf_dir*2+1];
+      // handle dir changes by smoothing offset
+      if (serf_prev_dir != serf_dir ){
+        if (  (serf_prev_dir == 0 || serf_prev_dir == 1 || serf_prev_dir == 5)  // serf generally facing right
+               && (serf_dir == 0 || serf_dir == 1 || serf_dir == 5) 
+           || (serf_prev_dir == 2 || serf_prev_dir == 3 || serf_prev_dir == 4)  // serf generally facing left
+               && (serf_dir == 2 || serf_dir == 3 || serf_dir == 4) ){
+          // average the offsets slowly across the first X ticks of the tile walk
+          int ticks_since_change = serf_counter_max - serf_counter;
+          Log::Info["viewport.cc"] << "pig farmer x dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim << ", ticks_since_change " << ticks_since_change;
+          double transition = 60.00;
+          if (ticks_since_change <= transition){
+            pig_x_off = pig_sprite_offset[serf_prev_dir*2]  *(transition-double(ticks_since_change))/transition + pig_sprite_offset[serf_dir*2  ]*double(ticks_since_change)/transition;
+            pig_y_off = pig_sprite_offset[serf_prev_dir*2+1]*(transition-double(ticks_since_change))/transition + pig_sprite_offset[serf_dir*2+1]*double(ticks_since_change)/transition;
+          }
+        }else{
+          Log::Info["viewport.cc"] << "pig farmer y dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim;
+        }
+      }else{
+        Log::Info["viewport.cc"] << "pig farmer z dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim;
+      }
+      // draw the pig behind the serf, a dynamic offset that follows the serf along the tile
+      int pig_x = lx + pig_x_off;
+      int pig_y = ly + pig_y_off;
+      draw_game_sprite(pig_x, pig_y, 162 + anim_offset);
+      // draw PigFarmer
+      draw_row_serf(lx, ly, true, color, body);
     } else {
       //
       // **** draw any normal serf as usual ****

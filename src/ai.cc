@@ -2107,7 +2107,7 @@ AI::do_demolish_unproductive_mines() {
     unsigned int current_tick = game->get_tick();
     unsigned int delta = current_tick - first_found_tick;
     //AILogDebug["do_demolish_unproductive_mines"] << "mine of type " << NameBuilding[building_type] << " at pos " << building_pos << " was first noticed active at tick " << first_found_tick << ", current tick is " << current_tick << ", delta is " << delta;
-    if (delta < 100000){
+    if (delta < 200000){  // doubled this jan04 2022, was seeing mines being torn down shortly after building (40x speed)
       //AILogDebug["do_demolish_unproductive_mines"] << "mine of type " << NameBuilding[building_type] << " at pos " << building_pos << " not enough ticks have passed since this was first caught active, not checking productivity";
       continue;
     }

@@ -189,6 +189,7 @@ class Serf : public GameObject {
       int dir1; /* B */
       unsigned int dest; /* C */
       int dir; /* E */
+      int prev_dir;  // added to support smoother animation on dir changes for followed sprites such as SerfsInBoats and pig farmer pannage/foraging
       int wait_counter; /* F */
     } walking;
 
@@ -466,6 +467,9 @@ class Serf : public GameObject {
   void set_walking_wait_counter(int new_counter) {
     s.walking.wait_counter = new_counter; }
   int get_walking_dir() const { return s.walking.dir; }
+  // adding this to help render smoother dir change graphics for "followed sprites"
+  //  for CanTransportSerfsInBoats and pig farmer pannage/foraging
+  int get_walking_prev_dir() const { return s.walking.prev_dir; }
   unsigned int get_idle_in_stock_inv_index() const {
                                              return s.idle_in_stock.inv_index; }
   int get_mining_substate() const { return s.mining.substate; }
