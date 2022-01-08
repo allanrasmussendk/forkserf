@@ -218,7 +218,7 @@ Frame::draw_sprite(int x, int y, Data::Resource res, unsigned int index,
 // added to support messing with weather/seasons/palette tiles, copy of protected Frame::draw_sprite#2
 void
 Frame::draw_sprite_special3(int x, int y, Data::Resource res, unsigned int index, bool use_off, const Color &color, float progress, unsigned int pos, unsigned int obj) {
-  //Log::Info["gfx"] << "inside Frame::draw_sprite_special3  with res " << res << ", index " << index << ", pos " << pos << ", obj " << obj;
+  Log::Info["gfx"] << "inside Frame::draw_sprite_special3  with res " << res << ", index " << index << ", pos " << pos << ", obj " << obj;
   Data::Sprite::Color pc = {color.get_blue(),
                             color.get_green(),
                             color.get_red(),
@@ -234,7 +234,7 @@ Frame::draw_sprite_special3(int x, int y, Data::Resource res, unsigned int index
     //int tree = (index - offset - frame) / 10;
     //Log::Info["gfx"] << "inside Frame::draw_sprite_special3, found season_offset[" << season << "] of " << offset << ", Tree#" << tree << " and frame# " << frame;
 
-    if (res == Data::AssetMapObject || res == Data::AssetMapShadow){
+    if (res == Data::AssetMapObject || res == Data::AssetMapShadow || res == Data::AssetGameObject){
     //if (res == Data::AssetMapObject){  // why is it still looking up MapShadows?  I thought I told it to use another function
       //Log::Info["gfx"] << "inside Frame::draw_sprite_special3, trying to load Custom MapObject graphic with index " << index;
       Data &data = Data::get_instance();
@@ -277,7 +277,7 @@ Frame::draw_sprite(int x, int y, Data::Resource res, unsigned int index,
 // copy of Frame::draw_sprite#3 but with passing of pos and object type to support messing with weather/seasons/palette tiles
 void
 Frame::draw_sprite_special1(int x, int y, Data::Resource res, unsigned int index, bool use_off, unsigned int pos, unsigned int obj) {
-  //Log::Info["gfx"] << "inside Frame::draw_sprite_special1, calling Frame::draw_sprite_special3 with res " << res << ", index " << index;
+  Log::Info["gfx"] << "inside Frame::draw_sprite_special1, calling Frame::draw_sprite_special3 with res " << res << ", index " << index;
   draw_sprite_special3(x, y, res, index, use_off, Color::transparent, 1.f, pos, obj);  // this is Frame::draw_sprite#2
 }
 

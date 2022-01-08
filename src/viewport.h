@@ -97,6 +97,7 @@ class Viewport : public GuiObject, public Map::Handler {
   void draw_border_segment(int x, int y, MapPos pos, Direction dir);
   void draw_paths_and_borders();
   void draw_game_sprite(int x, int y, int index);
+  void draw_game_sprite_custom(int x, int y, int index);  // added to support new graphics for pig farming/pannage/foraging
   void draw_serf(int x, int y, const Color &color, int head, int body);
   // this says shadow and building but it seems to include ANY map object sprite such as trees, stones
   void draw_shadow_and_building_sprite(int x, int y, int index,

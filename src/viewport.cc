@@ -690,6 +690,11 @@ Viewport::draw_game_sprite(int lx, int ly, int index) {
 }
 
 void
+Viewport::draw_game_sprite_custom(int lx, int ly, int index) {
+  frame->draw_sprite_special1(lx, ly, Data::AssetGameObject, index-1, true, bad_map_pos, Data::AssetMapObject);
+}
+
+void
 Viewport::draw_serf(int lx, int ly, const Color &color, int head, int body) {
   frame->draw_sprite(lx, ly, Data::AssetSerfTorso, body, true, color);
 
@@ -2529,22 +2534,19 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       int pig_y = ly + pig_y_off;
 
       // draw_game_sprite applies offset -1 so add 1 to these values!
+      int dir_used = -1;
       if (ticks_since_change < transition){
-        // use prev_dir facing
-        // backwards dirs because thats how serf->get_direction() works for some reason
-        if (serf_prev_dir == 0 || serf_prev_dir == 1 || serf_prev_dir == 5){
-          pig_sprite_left_right = 164;  //+1 from 163
-        }else{
-          pig_sprite_left_right = 162;  //+1 from 161
-        }
+        dir_used = serf_prev_dir;
       }else{
-        // use current dir facing
-        if (serf_dir == 0 || serf_dir == 1 || serf_dir == 5){
-          pig_sprite_left_right = 164;  //+1 from 163
-        }else{
-          pig_sprite_left_right = 162;  //+1 from 161
-        }
+        dir_used = serf_dir;
       }
+      // backwards dirs because thats how serf->get_direction() works for some reason
+      if (dir_used == 0){ pig_sprite_left_right = 164; }  //+1 from 163
+      if (dir_used == 1){ pig_sprite_left_right = 305; }  // custom, +1 from 303
+      if (dir_used == 2){ pig_sprite_left_right = 307; }  // custom, +1 from 306
+      if (dir_used == 3){ pig_sprite_left_right = 162; }  //+1 from 161
+      if (dir_used == 4){ pig_sprite_left_right = 301; }  // custom, +1 from 300
+      if (dir_used == 5){ pig_sprite_left_right = 303; }  // custom, +1 from 302
 
       //int anim_offset = 0;
       int pig_sprite = 0;
@@ -2578,7 +2580,13 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       }
 
       //draw_game_sprite(pig_x, pig_y, pig_sprite_left_right + anim_offset);
-      draw_game_sprite(pig_x, pig_y, pig_sprite);
+      //draw_game_sprite(pig_x, pig_y, pig_sprite);
+      // custom graphics for game_object 300+
+      if (pig_sprite >= 300){
+        draw_game_sprite_custom(pig_x, pig_y, pig_sprite);
+      }else{
+        draw_game_sprite(pig_x, pig_y, pig_sprite);
+      }
       // draw PigFarmer
       draw_row_serf(lx, ly, true, color, body);
     } else {
