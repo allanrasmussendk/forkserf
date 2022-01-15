@@ -383,6 +383,7 @@ DataSourceBase::get_animation_phase_count(size_t animation) {
 
 Data::Animation
 DataSourceBase::get_animation(size_t animation, size_t phase) {
+  Log::Info["data-source.cc"] << "inside DataSourceBase::get_animation, for animation #" << animation << ", un-shifted phase " << phase << ", shifted phase " << (phase >> 3) << ", animation_table.size is " << animation_table.size() << ", animation_table[animation].size is " << animation_table[animation].size();
   phase >>= 3;
   if ((animation >= animation_table.size()) ||
       (phase >= animation_table[animation].size())) {
@@ -392,6 +393,8 @@ DataSourceBase::get_animation(size_t animation, size_t phase) {
     << " phases)";
     return {0, 0, 0};
   }
-
+  // NOTE that animation sprite is a "char" and must be cast to an int or simply use std::to_string(var) to get a printable value
+  //  cannot print the usual way with Log << whatever
+  Log::Info["data-source.cc"] << "done DataSourceBase::get_animation, for animation #" << animation << ", phase " << phase << ", result sprite " << std::to_string(animation_table[animation][phase].sprite);
   return animation_table[animation][phase];
 }

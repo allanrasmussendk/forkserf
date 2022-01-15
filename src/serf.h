@@ -156,7 +156,9 @@ class Serf : public GameObject {
      original save game. */
     StateKnightAttackingDefeatFree,
     StateWaitForBoat,   // to support option_CanTransportSerfsInBoats
-    StateBoatPassenger  // to support option_CanTransportSerfsInBoats
+    StateBoatPassenger, // to support option_CanTransportSerfsInBoats
+    StatePannage,       // to support pig farmer pannage/pig foraging
+    StatePlanningPannage,  // to support pig farmer pannage/pig foraging
   } State;
 
  protected:
@@ -553,6 +555,8 @@ class Serf : public GameObject {
   void handle_serf_free_walking_state();
   void handle_serf_logging_state();
   void handle_serf_planning_logging_state();
+  void handle_serf_pannage_state();  // adding support for pig farmer pannage/pig foraging
+  void handle_serf_planning_pannage_state();  // adding support for pig farmer pannage/pig foraging
   void handle_serf_planning_planting_state();
   void handle_serf_planting_state();
   void handle_serf_planning_stonecutting();

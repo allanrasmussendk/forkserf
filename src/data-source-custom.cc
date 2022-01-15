@@ -64,7 +64,7 @@ DataSourceCustom::load() {
 // using DataSourceCustom graphics requires SDL2_Image included in build or it will fail!
 Data::MaskImage
 DataSourceCustom::get_sprite_parts(Data::Resource res, size_t index) {
-  //Log::Info["data-source-custom"] << "inside DataSourceCustom::get_sprite_parts with res " << res << ", index " << index;
+  Log::Info["data-source-custom"] << "inside DataSourceCustom::get_sprite_parts with res " << res << ", index " << index;
   ResInfo *info = get_info(res);
   if (info == nullptr) {
     Log::Warn["data-source-custom"] << "inside DataSourceCustom::get_sprite_parts with res " << res << ", index " << index << " get_info returned nullptr";
@@ -178,7 +178,12 @@ DataSourceCustom::load_animation_table() {
     return false;
   }
 
+  // the data_resources[] array has fixed limits for each Asset type
+  //  and overriding them is a bit difficult because of the mixing of data_source
+  //  functions, so instead of using 200+ as originally planned I am trying
+  //  using the index#s 181-199 which seem to be empty and unused, but are defined
   for (size_t i = 0; i < Data::get_resource_count(Data::AssetAnimation); i++) {
+    Log::Info["data-source-custom.cc"] << "inside load_animation_table, loading i animation #" << i;
     std::stringstream stream;
     stream << std::setfill('0') << std::setw(3) << i;
     ConfigFile meta = ConfigFile();
@@ -186,8 +191,10 @@ DataSourceCustom::load_animation_table() {
       return false;
     }
     size_t count = meta.value("general", "count", 0);
+    Log::Info["data-source-custom.cc"] << "inside load_animation_table, loading i animation #" << i << ", count " << count;
     std::vector<Data::Animation> animations;
     for (size_t j = 0; j < count; j++) {
+      //Log::Info["data-source-custom.cc"] << "inside load_animation_table, loading j animation #" << j;
       std::stringstream stream;
       stream << std::setfill('0') << std::setw(3) << j;
       Data::Animation animation;
@@ -198,6 +205,7 @@ DataSourceCustom::load_animation_table() {
     }
     animation_table.push_back(animations);
   }
+  Log::Info["data-source-custom.cc"] << "done load_animation_table, size is " << animation_table.size();
 
   return true;
 }

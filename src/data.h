@@ -85,7 +85,10 @@ class Data {
 
   class Animation {
    public:
-    uint8_t sprite;
+      // note that unlike other templates used here uint8_t is 'unsigned char' and shows up in debugger as an ASCII character, 
+      //  and doesn't print properly when using the Log functions, so animation.sprite cannot be printed normally, 
+      //  must use std::to_string(animation.sprite) or cast to another variable type (such as int)
+    uint8_t sprite;  // 8 bits, values 0-255
     int x;
     int y;
   };

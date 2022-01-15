@@ -696,8 +696,20 @@ Viewport::draw_game_sprite_custom(int lx, int ly, int index) {
 
 void
 Viewport::draw_serf(int lx, int ly, const Color &color, int head, int body) {
-  frame->draw_sprite(lx, ly, Data::AssetSerfTorso, body, true, color);
+  // orig
+  //frame->draw_sprite(lx, ly, Data::AssetSerfTorso, body, true, color);
 
+  if (body >= 600){
+    // use custom data source for new sprites
+    frame->draw_sprite_special2(lx, ly, Data::AssetSerfTorso, body, true, color, bad_map_pos, 0);  // call Frame::draw_sprite#5
+  }else{
+    // use normal data source
+    frame->draw_sprite(lx, ly, Data::AssetSerfTorso, body, true, color);
+  }
+
+  // if head is -1, the serf_torso sprite already includes a head and
+  //  so it does not need to be drawn separately
+  // if head is 0+, get the correct serf head type and draw it
   if (head >= 0) {
     frame->draw_sprite_relatively(lx, ly, Data::AssetSerfHead, head,
                                   Data::AssetSerfTorso, body);
@@ -1551,8 +1563,42 @@ Viewport::draw_map_objects_row(MapPos pos, int y_base, int cols, int x_base) {
 void
 Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
                         int body) {
+
+  //
+  // ============================ ANIMATION INFOMATION =========================
+  //
+  // tables contains X & Y values (x & x+1)
+  //   X is the first value of the serf_torso animation group sprite set, serf_torso has values 0-540
+  //
+  //  for information about which animation /metadata/ (NOT sprites) corresponds to which serf actions
+  //   consult the counter_from_animation[] table which lists them all out nicely
+  //
+  //     the serf_torso sprite groups seem to be something like this:
+  //       0- 47 serf carrying nothing, both arms seen, 8 frames per Direction * 6 directions
+  //      48- 95 serf carrying a res, one arm seen, 8 frames per Direction * 6 directions
+  //      96-143 sailor, no diff in carrying res vs no res,  8 frames per Direction * 6 directions
+  //     144-191 knight walking
+  //     192-201 idle transporter scratching head, 10 frames
+  //     202-239 NOTHING
+  //     248-351 professional serfs out doing their active jobs, various animation counts and lengths
+  //     352-465 knight fighting/dying animations
+  //     466-499 NOTHING
+  //     500-540 professional serf working INSIDE THEIR BUILDING, the "window" animations
+  //   Y is the head, serf_head  has values 0-629
+  //    if Y/head is -1, it is static during the animation - it does not change with Direction, the serf_torso animation includes the head already
+  //    if Y/head is 0+, it is a separate head and Y number determines what head, and the index2 table Y determines the Dir(?) the head is facing?
+  //     it is adjusted by the amount of the index2 "Y" (X+1) value (0-5 so only up to 6 head frames seen)
+  //  sprite in a group of serf_head sprites
+  // serf_head has sprites from 0-629
+  // for example, index1[100] is 138 which is
+  //  the first PigFarmer head animation for when
+  //  PigFarm is walking around
+  //
+  // the highest serf_torso sprite # is 540, which is the last sprite of ToolMaker making tool animation sprite set
+  //  which starts at serf_torso 533 which is in this table with head -1 (because head is included)
+  // so for new animations, I will start with 600 at new entry #274 (array index [273])
   const int index1[] = {
-    0, 0, 48, 6, 96, -1, 48, 24,
+    0, 0, 48, 6, 96, -1, 48, 24,   // torso 0, head 0 | torso 48, head 6 | torso 96, SPECIAL -1 | torso 48, head 24 ...
     240, -1, 48, 30, 248, -1, 48, 12,
     48, 18, 96, 306, 96, 300, 48, 54,
     48, 72, 48, 36, 0, 48, 272, -1,
@@ -1570,7 +1616,7 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
     96, 438, 48, 156, 312, -1, 320, -1,
     48, 162, 48, 168, 96, 444, 0, 174,
     513, -1, 48, 408, 48, 180, 96, 450,
-    0, 186, 520, -1, 48, 414, 48, 192,
+    0, 186, 520, -1, 48, 414, 48, 192,  
     96, 456, 328, -1, 48, 210, 344, -1,
     48, 6, 48, 6, 48, 216, 528, -1,
     48, 534, 48, 528, 48, 288, 48, 282,
@@ -1585,16 +1631,45 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
     144, 294, 144, 588, 144, 594, 144, 618,
     144, 624, 401, 294, 352, 297, 401, 588,
     352, 591, 401, 594, 352, 597, 401, 618,
-    352, 621, 401, 624, 352, 627, 450, -1,
-    192, -1
+    352, 621, 401, 624, 352, 627, 450, -1,     // 34 full rows of 8 entries  = 272
+    //192, -1   // orig
+    192, -1, 600, -1    // + 2 = 274 ENTRIES (indexes 0-273), adding a new one for pannage-tree-whacking animation so now 275 entries w/ indexes 0-274
   };
 
+
+  /* effectively...
+  // get "base/first" serf_torso sprite number from table 1 "X"
+  int base = index1[hi];
+  // and offset/increment it by the animation frame #
+  base += index2[lo];
+
+  // get the base serf_head sprite from table 1 "Y"
+  int head = index1[hi+1];
+  if (head == -1){
+    // no unique head, no Direction offset, serf_torso sprite includes head
+  else (head > 0) {
+    // use serf-specific head and apply Direction offset of 0-5
+    head += index2[lo+1];
+  }
+  */
+
+  // table contains X and Y values,
+  //  X is the serf TORSO animation frame(?) OFFSET from the base TORSO sprite value - index1[X]
+  //   torso above, for example you see the first X values correspond
+  //   to the 48 frames of animation which are 8 frames per Direction * 6 Directions for serfs walking
+  //   so as the animation.sprite / "t" increments the animation frames "play" in order until the
+  //   byte(?) rolls over(?) and the animation resets back to 0 frame
+  //  Y is the serf  HEAD animation OFFSET from the base  HEAD sprite value - index1[Y] aka index1[x + 1]
+  //   which seems to correspond to Directions 0-5
+  //  //  I think the -1 head values are for animations where the serf_torso includes the head
+  //  such as for the lumberjack chopping animation, and probably most of the professional
+  //  serf working animation
   const int index2[] = {
-    0, 0, 1, 0, 2, 0, 3, 0,
+    0, 0, 1, 0, 2, 0, 3, 0,      // serf walking Dir0, torso frames #1-8 (offset 0-7),  head Dir0 throughout
     4, 0, 5, 0, 6, 0, 7, 0,
-    8, 1, 9, 1, 10, 1, 11, 1,
+    8, 1, 9, 1, 10, 1, 11, 1,    // serf walking Dir1, torso frames #1-8 (offset 8-15), head Dir1 throughout
     12, 1, 13, 1, 14, 1, 15, 1,
-    16, 2, 17, 2, 18, 2, 19, 2,
+    16, 2, 17, 2, 18, 2, 19, 2,  // Dir2... and so on through Dir5
     20, 2, 21, 2, 22, 2, 23, 2,
     24, 3, 25, 3, 26, 3, 27, 3,
     28, 3, 29, 3, 30, 3, 31, 3,
@@ -1602,7 +1677,7 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
     36, 4, 37, 4, 38, 4, 39, 4,
     40, 5, 41, 5, 42, 5, 43, 5,
     44, 5, 45, 5, 46, 5, 47, 5,
-    0, 0, 1, 0, 2, 0, 3, 0,
+    0, 0, 1, 0, 2, 0, 3, 0,  // serf carrying? Dir0..  are there fewer frames???
     4, 0, 5, 0, 6, 0, 2, 0,
     0, 1, 1, 1, 2, 1, 3, 1,
     4, 1, 5, 1, 6, 1, 2, 1,
@@ -1610,7 +1685,7 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
     4, 2, 5, 2, 6, 2, 2, 2,
     0, 3, 1, 3, 2, 3, 3, 3,
     4, 3, 5, 3, 6, 3, 2, 3,
-    0, 0, 1, 0, 2, 0, 3, 0,
+    0, 0, 1, 0, 2, 0, 3, 0,  // sailor???? Dir0..
     4, 0, 5, 0, 6, 0, 7, 0,
     8, 0, 9, 0, 10, 0, 11, 0,
     12, 0, 13, 0, 14, 0, 15, 0,
@@ -1634,19 +1709,69 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
     frame->draw_sprite(lx, ly, Data::AssetSerfShadow, 0, true);
   }
 
-  int hi = ((body >> 8) & 0xff) * 2;
+  int hi = ((body >> 8) & 0xff) * 2;  // what purpose does & 255 have?  I think it strips any leading 1s if there were any?
+  // note that int max is       1111111111111111111111111111111 so 32bits
+  // take a "body" which is "t" in serf_get_body which is based on "animation.sprite" which is only 8 bits but is expanded to 32bit integer as "t"
+  //  then it is prefixed with the "actual animation"??
+  // bit-shift 8 bits right, so 011010000000000 becomes 000000000110100 (or 0000000000000000000000000110100)
+  //  then it ANDs 255 which is 11111111 which means and numbers LEFT of the prefix are eliminated...
+  //  and then doubled so the result is always even (I think because the arrays are X,Y,X,Y...) where X is the torsos and Y is the heads
+
   int lo = (body & 0xff) * 2;
+  // this takes the RIGHT 8 bits from "body" aka "t" and should exactly match "animation.sprite" value because "t" is just prefix + animation.sprite
+  //  and THEN doubles it so it is not longer identical to animation.sprite, but double its value?
+  
+      //t += 0x3400;   // pig farmer carrying resource sprite
+      //0x3400 is 13312 which is 11010000000000
+      //      >>8 is 52 which is 110100
+      //t += 0x3200;   // pig farmer walking sprite
+      //0x3200 is 12800 which is 11001000000000
+      //      >>8 is 50 which is 110010
+      //t += 0x3280;   // pig farmer dumping bucket for pigs sprite  ???
+      //  0xe80 is 3712 which is 00111010000000
+      //      >>8 is 14 which is 001110
 
-  int base = index1[hi];
-  int head = index1[hi+1];
+  // so an example:
+  // uint8_t (255 bits, values 0-255) animation.sprite = 00001110 or 14 which as a 'char' shows up in debugger as an ASCII special char "shift out"
+  // int (32 bits depending on arch)  t = animation.sprite so t = 00000000 00000000 00000000 00001110  which is 14 and shows in debugger as 14
+  // depending on what the serf is doing, it is assigned an (6bit? which has max value 64) prefix
+  //  for example 0x3280 (pig farmer dumping bucket)     which is 00000000 00000000 00110010 10000000  which is 12928 so maybe these are six or 7 digit numbers??
+  // int hi shifts 8 bits right                    50 =  creating 00000000 00000000 00000000 00110010  which eliminated a 1 (from 10000000  - 128 becomes 0), = 50 now
+  //  then it does AND 255 (which is 11111111)... which does nothing because the first 24 digits are already empty (and always will be here?)  = 50 still
+  //  then it doubles it                    100 = 50*2 = creating 00000000 00000000 00000000 01100100  which basically just added a zero to the right,  = 100 now
+  //  so hi = 100
+  // int lo doesn't bit shift,                     so it is still 00000000 00000000 00000000 00001110  which is still 14
+  //  then it does AND 255 (which is 11111111)... which does nothing because the first 24 digits are already empty (and always will be here?)  = 14 still
+  //  then it doubles it                     28 = 14*2 = creating 00000000 00000000 00000000 00011100  which basically just added a zero to the right,  = 28 now
+  //  so lo = 28
+  // it appears that hi = "the animation" and lo = "the frame of the animation"
+  Log::Info["viewport.cc"] << "inside draw_row_serf, body = " << body << ", hi = " << hi << ", lo = " << lo;
 
+  int base = index1[hi];   //Data::AssetSerfTorso
+  int head = index1[hi+1]; //Data::AssetSerfHead
+
+  //
+  // UPDATE THIS CODE TO USE THE SIMPLIFIED EASIER TO UNDERSTAND VERSION I WROTE ABOVE
+  //
+
+  // index1 contains numbers from -1 to 627, only a few are -1
+  //  I think the -1 head values are for animations where the serf_torso includes the head
+  //  such as for the lumberjack chopping animation, and probably most of the professional
+  //  serf working animations
+  // YES THIS MUST BE CORRECT, as the head is passed to draw_serf as -1 and so not even drawn!
+  //
+  // use index2 which has values from 0-64
+  // index2 is ALWAYS used, the index1 table seems to be a "part 1" lookup?  // I think this is just the frame offset (phase) from base, not a different torso
+  Log::Info["viewport.cc"] << "inside draw_row_serf, head from index1[hi] is index1[" << hi << "] is " << head << ", using index2[lo] of index2[" << lo << "], base was " << base << " adding += " << index2[lo] << " and it is now " << (base + index2[lo]);
   if (head < 0) {
-    base += index2[lo];
+    base += index2[lo];  // I think this is just the frame offset (phase) from base, not a different torso
   } else {
-    base += index2[lo];
+    base += index2[lo];  // I think this is just the frame offset (phase) from base, not a different torso
+    Log::Info["viewport.cc"] << "inside draw_row_serf, head from index1[hi] is index1[" << hi << "] is " << head << ", using index2[lo+1] is index2[" << lo + 1 << "], head was " << head << " adding += " << index2[lo + 1] << " and it is now " << (head + index2[lo + 1]);
     head += index2[lo+1];
   }
 
+  Log::Info["viewport.cc"] << "inside draw_row_serf, calling draw_serf with head " << head << ", base " << base;
   draw_serf(lx, ly, color, head, base);
 }
 
@@ -1686,10 +1811,64 @@ Viewport::serf_get_body(Serf *serf) {
     0x7600, 0x5f00, 0x6000, 0, 0, 0, 0, 0, 0, 0
   };
 
+  
+  //
+  // serf.animation directly corresponds to an entry in the data_source "animation" table
+  //  and the animation table entry contains an ordered list of sprites and offsets which
+  //  correspond to frames/phases of the animation
+  // serf.counter is bit-shifted >>3 (i.e. "slowed")
+  //  and the slowed value maps to one of the frames ("phase") of the animation in the serf.animation table
+  //
+  // Data::Animation "animation" here is actually the specific frame of animation 
+  //  because it is determined by serf animation and COUNTER which changes with game ticks
+  //  unlike serf.animation which is the entire animation metadata, and serf.counter determines the frame/phase
+  //
+  // the sprite provided by data_source animation frame/phase is cast to a uint8_t value which is only
+  //  8-bit with values 0-255, (and indeed the sprite values in the animation metadata are all under 256) 
+  //  but there are torso and head indexes much higher than 255, so some offsetting/mapping
+  //  is done based on serf type and state that adjusts the animation.sprite value (which is cast to int t)
+  //  the offsetting of "t" is done here and returned to calling function draw_serf_row which does
+  //  the rest of the work looking up the actual serf torso and head and actually drawing them
+  //
+  // I am not aware of any table that lists the "int t" offset values used below and
+  //  how they correspond to various serf types and states, it appears to only
+  //  exist in these case statements here
+  //
+  // based on the logic below, I believe all animation.sprite values 0-127 are "serf walking" animations
+  //  and the serf may or may not be carrying a resource
+  // all animation.sprite values 128-255 are "serf working" animations, doing their job or at least not
+  //  doing normal walking around
+  //
+  // IT SEEMS LIKE THE animation.sprite VALUES DO NOT ACTUALLY MATTER, only their
+  //  relative indexes and the t += offsets below.  Ultimately, the animation.sprite value
+  //  is mapped to an actual serf_torso (and maybe head) sprite number using int t offsets below
+  //  and the hi/lo bit-shifting and index1/2 lookup tables in the calling function
+  //  As long as the 'hi' ends up being the correct sprite torso base for the animation set
+  //   and the 'lo' is effective the frame index starting at zero, the index_1 (and index_2) tables
+  //   seem like they can be mapped to anything at all.  I ended up accidentally getting the 
+  //   lumberjack animation #116 metadata file which uses sprites 128-135 (which don't directly map
+  //   to anything in the data source, instead the index_1 array maps them to torso base 272).
+  //   so if you were to change the t += values you could probably change the sprite to anything
+  //   and the only matter is that it only has values 0-255 and 0-127 seem to be reserved for walking
+  //
+
+  /*  orig
   Data::Animation animation = data_source->get_animation(serf->get_animation(),
                                                          serf->get_counter());
-  int t = animation.sprite;
+                                                         */
+  Data::Animation animation;
+  if (serf->get_animation() >= 181){
+    // custom graphics
+    //Log::Info["viewport.cc"] << "inside serf_get_body, using data_source_Custom for serf->animation call for animation #" << serf->get_animation() << ", counter " << serf->get_counter();
+    animation = Data::get_instance().get_data_source_Custom()->get_animation(serf->get_animation(), serf->get_counter());
+    Log::Info["viewport.cc"] << "inside serf_get_body, using data_source_Custom for serf->animation call for animation #" << serf->get_animation() << ", counter " << serf->get_counter() << ", got animation.sprite " << std::to_string(animation.sprite);
+  } else {
+    // normal graphics
+    animation = data_source->get_animation(serf->get_animation(), serf->get_counter());
+  }
 
+  int t = animation.sprite;  // cast a 8-bit uint8_t animation.sprite to a 32-bit integer, the leading bits are used to transfer additional information here?
+  Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", serf->animation " << serf->get_animation() << ", serf->counter " << serf->get_counter() << ", animation.sprite " << std::to_string(animation.sprite);
   switch (serf->get_type()) {
   case Serf::TypeTransporter:
   case Serf::TypeGeneric:
@@ -1943,6 +2122,7 @@ Viewport::serf_get_body(Serf *serf) {
       }
     }
     break;
+    /* original
   case Serf::TypePigFarmer:
     if (t < 0x80) {
       if (serf->get_state() == Serf::StateLeavingBuilding &&
@@ -1954,6 +2134,64 @@ Viewport::serf_get_body(Serf *serf) {
       }
     } else {
       t += 0x3280;
+    }
+    break;
+    */
+  // testing pannage
+  /* hacked to pieces, setting aside for a bit
+  case Serf::TypePigFarmer:   // copied from Lumberjack
+    //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", before changing, t = " << t;
+    if (t < 0x80) {  // if sprite is 0-127
+        // if serf is carrying a resource to drop off at flag, prefix with "serf carrying" animation
+      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", t < 128, t = " << t;
+      if (serf->get_state() == Serf::StateFreeWalking &&
+          serf->get_free_walking_neg_dist1() == -128 &&
+          serf->get_free_walking_neg_dist2() == 1) {
+        //t += 0x1000; // lumberjack carrying resource sprite
+        t += 0x3400;   // pig farmer carrying resource sprite
+        //0x3400 is 13312 which is 11010000000000
+        //      >>8 is 52 which is 110100
+      } else {
+        // otherwise prefix with "serf walking" animation
+        //t += 0xb00;  // lumberjack walking sprite
+        t += 0x3200;   // pig farmer walking sprite
+        //0x3200 is 12800 which is 11001000000000
+      }
+    } else if ((t == 0x86 && !serf->playing_sfx()) ||  // if sprite is 134 and not already playing sound, OR if sprite is 133... play sound and prefix with "serf working" animation
+          t == 0x85) {
+      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", doing start_playing_sfx, t = " << t;
+      serf->start_playing_sfx();
+      play_sound(Audio::TypeSfxAxBlow);
+      // TODO Dangerous reference to unknown state vars.
+      //    It is probably free walking.
+      if (serf->get_free_walking_neg_dist2() == 0 &&
+          serf->get_counter() < 64) {
+        //play_sound(Audio::TypeSfxTreeFall);
+        play_sound(Audio::TypeSfxTreeFall, DataSourceType::DOS);  // DOS sound is better
+      }
+      t += 0xe80; // lumberjack start a chop ? sprite
+      //t += 0x3280;  // pig farmer dumping bucket for pigs sprite  ???
+    } else if (t != 0x86) {  // if is >=128 and not 133 or 134, stop any sound that might be playing and prefix with "serf working" animation
+      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", else, t = " << t;
+      serf->stop_playing_sfx();
+      t += 0xe80; // lumberjack end of one chop ? sprite
+      //t += 0x3280;  // pig farmer dumping bucket for pigs sprite  ???
+      //  0xe80 is 3712 which is 00111010000000
+      //    >>8 is   14 which is 001110
+    }
+    //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", after changing, t = " << t;
+    */
+  // second test off pannage
+  case Serf::TypePigFarmer:
+    if (t < 128) {
+      // sprites   0-127 are "walking sprites", I think
+      t += 0x3200;   // pig farmer walking (not carrying res), results in serf-walking-without-res sprites 0-47, and fixed pigfarmer head facing dirs 0-5
+    } else {
+      // sprites 128-255 are "working sprites", I think
+      //t += 0x3280;   // pig farmer dumping bucket for pigs animation 
+      //t += 0xe80; // lumberjack start a chop ? sprite
+      //t += 35072;  // NEW SPRITE/ANIMATION SET - pig farmer whacking tree, after >>8 & 255 * 2 should result in #274
+      t += 34944;  // NEW SPRITE/ANIMATION SET - pig farmer whacking tree, after >>8 & 255 * 2 should result in #274
     }
     break;
   case Serf::TypeButcher:
@@ -2183,6 +2421,7 @@ Viewport::serf_get_body(Serf *serf) {
 
 void
 Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
+  Log::Info["viewport.cc"] << "inside draw_active_serf for serf index " << serf->get_index() << ", type " << NameSerf[serf->get_type()];
   const int arr_4[] = {
      9, 5,
     10, 7,
@@ -2215,12 +2454,23 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
     return;
   }
 
-  Data::Animation animation = data_source->get_animation(serf->get_animation(),
-                                                         serf->get_counter());
+  Data::Animation animation;
+  if (serf->get_animation() >= 181){
+    // custom graphics
+    //data_source = Data::get_instance().get_data_source();
+    //Log::Info["viewport.cc"] << "inside draw_active_serf, using data_source_Custom for serf->animation call for animation #" << serf->get_animation() << ", counter " << serf->get_counter();
+    animation = Data::get_instance().get_data_source_Custom()->get_animation(serf->get_animation(), serf->get_counter());
+    Log::Info["viewport.cc"] << "inside draw_active_serf, using data_source_Custom for serf->animation call for animation #" << serf->get_animation() << ", counter " << serf->get_counter() << ", got animation.sprite " << std::to_string(animation.sprite);
+    //Data::Animation animation = data_source_Custom->get_animation(serf->get_animation(), serf->get_counter());
+
+  } else {
+    // normal graphics
+    animation = data_source->get_animation(serf->get_animation(), serf->get_counter());
+  }
 
   int lx = x_base + animation.x;
   int ly = y_base + animation.y - 4 * map->get_height(pos);
-  int body = serf_get_body(serf);
+  int body = serf_get_body(serf);  // this calls data_source->get_animation() also
 
   if (body > -1) {
     Color color = interface->get_player_color(serf->get_owner());

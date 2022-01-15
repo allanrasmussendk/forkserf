@@ -61,20 +61,37 @@ https://github.com/Pyrdacor/freeserf.net/commit/101de41d3933664a4db83f7858a0fa1b
   other_serf->state = new_state;
 
 
+// this array maps the length of each animation (in terms of ticks??)
+
+// a serf's count is set to this value (or maybe negative this value?)
+//  when a new animation beings and it counts to zero as the animation
+//  progresses.  Once it reaches zero the various serf state checks
+//  find the next state/animation or repeat the current one and reset
+//  the counter
+//
+// walking animations are per direction and per steepness level
+//
+// other animations such as Logging/Lumberjack have multiple animations
+//  each with their own length.  For example chopping the tree down, 
+//  cutting the branches off...
+//
+// These animations map to the 'animations'
+//  table in the data_source.
+//
 static const int counter_from_animation[] = {
   /* Walking (0-80) */
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // Dir0. each road steepness level 
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // Dir1...
   511, 447, 383, 319, 255, 319, 511, 767, 1023,
   511, 447, 383, 319, 255, 319, 511, 767, 1023,
   511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
-  511, 447, 383, 319, 255, 319, 511, 767, 1023,
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // ...Dir5
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // Dir0 again, what is this?
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // Dir1 again, what is this?
+  511, 447, 383, 319, 255, 319, 511, 767, 1023,  // Dir2 again, what is this?
 
   /* Waiting (81-86) */
-  127, 127, 127, 127, 127, 127,
+  127, 127, 127, 127, 127, 127,     // static waiting, in each Dir0-5
 
   /* Digging (87-88) */
   383, 383,
@@ -170,7 +187,16 @@ static const int counter_from_animation[] = {
   127,
 
   /* Victory defending (180) */
-  7
+  7,
+
+  // animations 181-199 appear to exist in data source, as shown by FSStudio
+  //  however they looked incomplete/bugged/empty as only Amiga shows anything
+  //  for these and it is the same single value for 181-199 and they are not defined here
+  // beacuse of various limits making it difficult to simply start from index 200,
+  //  I am attempting to use indexes 181-199 for custom animations
+
+  /* Pannage - PigFarmer hitting Tree with stick and acorns falling (181) */
+  383,   // guess, for "medium length"
 };
 
 
@@ -257,6 +283,8 @@ static const char *serf_state_name[] = {
   "KNIGHT ATTACKING DEFEAT FREE",  // SERF_STATE_KNIGHT_ATTACKING_DEFEAT_FREE
   "WAIT FOR BOAT",  // SERF_STATE_WAIT_FOR_BOAT
   "PASSENGER IN BOAT",  // SERF_STATE_PASSENGER_IN_BOAT
+  "PANNAGE",
+  "PLANNING PANNAGE",
 };
 
 
@@ -2323,6 +2351,7 @@ Serf::handle_serf_entering_building_state() {
           set_state(StatePlanningFishing);
         }
         break;
+        /*
       case TypePigFarmer:
         if (s.entering_building.field_B == -2) {
           enter_inventory();
@@ -2356,6 +2385,15 @@ Serf::handle_serf_entering_building_state() {
             s.pigfarming.mode = 6;
             counter = 0;
           }
+        }
+        break;
+        */
+      case TypePigFarmer:
+        if (s.entering_building.field_B == -2) {
+          enter_inventory();
+        } else {
+          map->set_serf_index(pos, 0);
+          set_state(StatePlanningPannage);
         }
         break;
       case TypeButcher:
@@ -3168,7 +3206,7 @@ Serf::find_inventory() {
 }
 
 void
-Serf::  handle_serf_free_walking_state_dest_reached() {
+Serf::handle_serf_free_walking_state_dest_reached() {
   if (s.free_walking.neg_dist1 == -128 &&
       s.free_walking.neg_dist2 < 0) {
     //Log::Info["serf"] << "debug : Serf::handle_serf_free_walking_state_dest_reached s.free_walking.neg_dist1: " << s.free_walking.neg_dist1 << ", s.free_walking.neg_dist2: " << s.free_walking.neg_dist2;
@@ -3221,6 +3259,38 @@ Serf::  handle_serf_free_walking_state_dest_reached() {
           counter = counter_from_animation[animation];
         } else {
           /* The expected tree is gone */
+          s.free_walking.neg_dist1 = -128;
+          s.free_walking.neg_dist2 = 0;
+          s.free_walking.flags = 0;
+          counter = 0;
+        }
+      }
+      break;
+    case TypePigFarmer:
+      if (s.free_walking.neg_dist1 == -128) {
+        if (s.free_walking.neg_dist2 > 0) {
+          drop_resource(Resource::TypeLumber);
+        }
+
+        set_state(StateReadyToEnter);
+        s.ready_to_enter.field_B = 0;
+        counter = 0;
+      } else {
+        s.free_walking.dist_col = s.free_walking.neg_dist1;
+        s.free_walking.dist_row = s.free_walking.neg_dist2;
+        int obj = map->get_obj(pos);
+        if (obj >= Map::ObjectTree0 &&
+            obj <= Map::ObjectTree7) {  // only Trees, no Pines
+          set_state(StatePannage);
+          s.free_walking.neg_dist1 = 0;
+          s.free_walking.neg_dist2 = 0;
+          if (obj < 16) s.free_walking.neg_dist1 = -1;
+          //animation = 116; // 116 is lumberjack chopping animation
+          animation = 181; // this is new custom pannage animation metadata, but is simply using lumberjack chopping SPRITE and x/y-offset for the moment
+          counter = counter_from_animation[animation];
+          Log::Info["serf.cc"] << "custom animation 200, got counter_from_animation value " << counter << ", expecting 383";
+        } else {
+          /* The expected Tree is gone */
           s.free_walking.neg_dist1 = -128;
           s.free_walking.neg_dist2 = 0;
           s.free_walking.flags = 0;
@@ -3963,6 +4033,69 @@ Serf::handle_serf_planning_logging_state() {
       s.leaving_building.dir = -Map::get_spiral_pattern()[2 * dist + 1] + 1;
       s.leaving_building.next_state = StateFreeWalking;
       Log::Verbose["serf"] << "planning logging: tree found, dist "
+                           << s.leaving_building.field_B << ", "
+                           << s.leaving_building.dest << ".";
+      return;
+    }
+
+    counter += 400;
+  }
+}
+
+void
+Serf::handle_serf_pannage_state() {
+  uint16_t delta = game->get_tick() - tick;
+  tick = game->get_tick();
+  counter -= delta;
+
+  while (counter < 0) {
+    s.free_walking.neg_dist2 += 1;
+
+    /*
+    int new_obj = -1;
+    if (s.free_walking.neg_dist1 != 0) {
+      new_obj = Map::ObjectFelledTree0 + s.free_walking.neg_dist2 - 1;
+    } else {
+      new_obj = Map::ObjectFelledPine0 + s.free_walking.neg_dist2 - 1;
+    }
+
+    // Change map object. 
+    game->get_map()->set_object(pos, (Map::Object)new_obj, -1);
+    */
+
+    if (s.free_walking.neg_dist2 < 1) {
+      animation = 116 + s.free_walking.neg_dist2;
+      counter += counter_from_animation[animation];
+    } else {
+      set_state(StateFreeWalking);
+      counter = 0;
+      s.free_walking.neg_dist1 = -128;
+      s.free_walking.neg_dist2 = 1;
+      s.free_walking.flags = 0;
+      return;
+    }
+  }
+}
+
+void
+Serf::handle_serf_planning_pannage_state() {
+  uint16_t delta = game->get_tick() - tick;
+  tick = game->get_tick();
+  counter -= delta;
+
+  while (counter < 0) {
+    int dist = (game->random_int() & 0x7f) + 1;
+    MapPos pos_ = game->get_map()->pos_add_spirally(pos, dist);
+    int obj = game->get_map()->get_obj(pos_);
+    // no Pines, only Trees
+    if (obj >= Map::ObjectTree0 && obj <= Map::ObjectTree7) {
+      set_state(StateReadyToLeave);
+      s.leaving_building.field_B = Map::get_spiral_pattern()[2 * dist] - 1;
+      s.leaving_building.dest = Map::get_spiral_pattern()[2 * dist + 1] - 1;
+      s.leaving_building.dest2 = -Map::get_spiral_pattern()[2 * dist] + 1;
+      s.leaving_building.dir = -Map::get_spiral_pattern()[2 * dist + 1] + 1;
+      s.leaving_building.next_state = StateFreeWalking;
+      Log::Verbose["serf"] << "planning pannage: Tree found, dist "
                            << s.leaving_building.field_B << ", "
                            << s.leaving_building.dest << ".";
       return;
@@ -6266,6 +6399,12 @@ Serf::update() {
     break;
   case StatePlanningLogging:
     handle_serf_planning_logging_state();
+    break;
+  case StatePannage:
+    handle_serf_pannage_state();
+    break;
+  case StatePlanningPannage:
+    handle_serf_planning_pannage_state();
     break;
   case StatePlanningPlanting:
     handle_serf_planning_planting_state();

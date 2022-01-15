@@ -234,7 +234,7 @@ Frame::draw_sprite_special3(int x, int y, Data::Resource res, unsigned int index
     //int tree = (index - offset - frame) / 10;
     //Log::Info["gfx"] << "inside Frame::draw_sprite_special3, found season_offset[" << season << "] of " << offset << ", Tree#" << tree << " and frame# " << frame;
 
-    if (res == Data::AssetMapObject || res == Data::AssetMapShadow || res == Data::AssetGameObject){
+    if (res == Data::AssetMapObject || res == Data::AssetMapShadow || res == Data::AssetGameObject || res == Data::AssetSerfTorso){
     //if (res == Data::AssetMapObject){  // why is it still looking up MapShadows?  I thought I told it to use another function
       //Log::Info["gfx"] << "inside Frame::draw_sprite_special3, trying to load Custom MapObject graphic with index " << index;
       Data &data = Data::get_instance();
