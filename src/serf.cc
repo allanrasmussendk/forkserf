@@ -195,8 +195,18 @@ static const int counter_from_animation[] = {
   // beacuse of various limits making it difficult to simply start from index 200,
   //  I am attempting to use indexes 181-199 for custom animations
 
-  /* Pannage - PigFarmer hitting Tree with stick and acorns falling (181) */
-  383,   // guess, for "medium length"
+  // guess the correct counter number based on frames of animation defined
+  //
+  // - it seems that if the counter is too high for the animation length, the serf
+  //     will appear to stand idle for a moment before the proper animation begins
+  // - there seems to be range where it is "good enough" where increasing a bit has no
+  //     difference in the animation, so try to find this range for any new animations
+  // - if the counter is set too low, the animation skips some of the earliest frames
+
+  /* Pannage (181) - PigFarmer walk-a-bit-left and hit Tree with stick and watch
+                      acorns falling, then stare up at at tree a while,
+                      then walk-a-bit-right the center of tree again for next state */
+  570,
 };
 
 
@@ -3254,7 +3264,13 @@ Serf::handle_serf_free_walking_state_dest_reached() {
           set_state(StateLogging);
           s.free_walking.neg_dist1 = 0;
           s.free_walking.neg_dist2 = 0;
-          if (obj < 16) s.free_walking.neg_dist1 = -1;
+          // to distinguish between Tree and Pine for the
+          //  following animations (as tree is felled and cut up)
+          //  the tree type is stored in s.free_walking.neg_dist1
+          //   s.free_walking.neg_dist1    -1 is Tree,   0 is Pine
+          // orig  
+          //if (obj < 16) s.free_walking.neg_dist1 = -1;
+          if (obj < Map::ObjectPine0) s.free_walking.neg_dist1 = -1;
           animation = 116;
           counter = counter_from_animation[animation];
         } else {
@@ -3991,16 +4007,31 @@ Serf::handle_serf_logging_state() {
   while (counter < 0) {
     s.free_walking.neg_dist2 += 1;
 
+    // to distinguish between Tree and Pine for the
+    //  following animations (as tree is felled and cut up)
+    //  the tree type is stored in s.free_walking.neg_dist1
+    //  by the previous FreeWalking dest_reached state for Lumberjack
+    //   s.free_walking.neg_dist1    -1 is Tree,   0 is Pine
     int new_obj = -1;
     if (s.free_walking.neg_dist1 != 0) {
       new_obj = Map::ObjectFelledTree0 + s.free_walking.neg_dist2 - 1;
     } else {
       new_obj = Map::ObjectFelledPine0 + s.free_walking.neg_dist2 - 1;
     }
-
     /* Change map object. */
     game->get_map()->set_object(pos, (Map::Object)new_obj, -1);
 
+    // there are five logging substates/animations
+    //         Logging (116-120) 
+    //       1023, 31, 767, 767, 255,
+    //  ??? what triggers the "serf walking left a bit to get in proper chopping distance"?
+    //  116 is walk-a-bit-left to the proper chipping distance, and chop the tree.
+    //    REMEMBER, ANIMATIONS ARE PLAYED IN REVERSE ORDER, SO THE LAST FRAMES ARE FIRST
+    //    walk left a bit (frames/phases 112+) and then chop 14 times
+    //  117 is "recovering" to normal right-facing stance as tree falls?  says four frames of same sprite
+    //  118 is chopping up tree (2.5 chops, walk up-right a bit, repeat a couple times)
+    //  119 is continued chopping up tree (2.5 chops, walk up-right a bit, repeat a couple times)
+    //  120 is walking down-left back to the center of tree pos to pick up log
     if (s.free_walking.neg_dist2 < 5) {
       animation = 116 + s.free_walking.neg_dist2;
       counter += counter_from_animation[animation];
@@ -4049,31 +4080,12 @@ Serf::handle_serf_pannage_state() {
   counter -= delta;
 
   while (counter < 0) {
-    s.free_walking.neg_dist2 += 1;
-
-    /*
-    int new_obj = -1;
-    if (s.free_walking.neg_dist1 != 0) {
-      new_obj = Map::ObjectFelledTree0 + s.free_walking.neg_dist2 - 1;
-    } else {
-      new_obj = Map::ObjectFelledPine0 + s.free_walking.neg_dist2 - 1;
-    }
-
-    // Change map object. 
-    game->get_map()->set_object(pos, (Map::Object)new_obj, -1);
-    */
-
-    if (s.free_walking.neg_dist2 < 1) {
-      animation = 116 + s.free_walking.neg_dist2;
-      counter += counter_from_animation[animation];
-    } else {
-      set_state(StateFreeWalking);
-      counter = 0;
-      s.free_walking.neg_dist1 = -128;
-      s.free_walking.neg_dist2 = 1;
-      s.free_walking.flags = 0;
-      return;
-    }
+    set_state(StateFreeWalking);
+    counter = 0;
+    s.free_walking.neg_dist1 = -128;
+    s.free_walking.neg_dist2 = 1;
+    s.free_walking.flags = 0;
+    return;
   }
 }
 
@@ -7538,5 +7550,9 @@ Serf::print_state() {
 
     default: break;
   }
+
+  // tlongstretch debugging
+  res << "animation" << "\t" << animation << "\n";
+
   return res.str();
 }

@@ -1567,6 +1567,10 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
   //
   // ============================ ANIMATION INFOMATION =========================
   //
+  // *********************************************************************************************
+  // NOTE - ALL ANIMATIONS ARE PLAYED IN REVERSE ORDER THAT THE FRAMES APPEAR IN THE .ini file!!!!
+  // *********************************************************************************************
+  //
   // tables contains X & Y values (x & x+1)
   //   X is the first value of the serf_torso animation group sprite set, serf_torso has values 0-540
   //
@@ -1850,7 +1854,9 @@ Viewport::serf_get_body(Serf *serf) {
   //   to anything in the data source, instead the index_1 array maps them to torso base 272).
   //   so if you were to change the t += values you could probably change the sprite to anything
   //   and the only matter is that it only has values 0-255 and 0-127 seem to be reserved for walking
-  //
+  // *********************************************************************************************
+  // NOTE - ALL ANIMATIONS ARE PLAYED IN REVERSE ORDER THAT THE FRAMES APPEAR IN THE .ini file!!!!
+  // *********************************************************************************************
 
   /*  orig
   Data::Animation animation = data_source->get_animation(serf->get_animation(),
@@ -2610,7 +2616,9 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         if (draw_boat_pickup){ draw_row_serf(pickup_x, pickup_y, true, color, pickup_body);}
         if (draw_boat_dropoff){ draw_row_serf(dropoff_x, dropoff_y, true, color, dropoff_body);}
       }
-    } else if (serf->get_type() == Serf::TypePigFarmer){
+    // temp disabling for now
+    //} else if (serf->get_type() == Serf::TypePigFarmer){
+    } else if (false){
       // experimenting with pannage/pig foraging
 
         static const int pigfarm_anim[] = {
@@ -2739,12 +2747,15 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       int serf_prev_dir = serf->get_walking_prev_dir();
       int serf_dir = serf->get_walking_dir();
       // handle waiting state
-      if (serf_dir < 0){
+      if ((serf->get_state() == Serf::StateWalking || serf->get_state() == Serf::StateFreeWalking || serf->get_state() == Serf::StateWaitIdleOnPath)
+          && serf_dir < 0){
+        Log::Info["viewport.cc"] << "inside draw_active_serf, serf_dir " << serf_dir << " is < 0, serf must be waiting, setting serf_counter_max to 127";
         serf_dir += 6;
         serf_dir = reverse_direction(Direction(serf_dir));  // why are serf walking dirs backwards?
         serf_counter_max = 127;  // this is always 127 when waiting
       }
-      //Log::Info["viewport.cc"] << "pig farmer dir " << serf->get_walking_dir() << ", last_dir " << serf->get_walking_prev_dir() << ", counter " << serf_counter << ", anim " << serf_anim;
+
+      //Log::Info["viewport.cc"] << "pig sprite dir " << serf->get_walking_dir() << ", last_dir " << serf->get_walking_prev_dir() << ", counter " << serf_counter << ", anim " << serf_anim;
       int pig_x_off = 0;
       int pig_y_off = 0;
       int pig_sprite_left_right = 0;
@@ -2762,13 +2773,17 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
                && (serf_dir == 2 || serf_dir == 3 || serf_dir == 4) ){
                  */
           // average the offsets across the first X ticks of the tile walk
-          Log::Info["viewport.cc"] << "pig farmer x dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim << ", ticks_since_change " << ticks_since_change;
+          //Log::Info["viewport.cc"] << "pig sprite x dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim << ", ticks_since_change " << ticks_since_change;
+
           // handle waiting state
+          //if ((serf->get_state() == Serf::StateWalking || serf->get_state() == Serf::StateFreeWalking || serf->get_state() == Serf::StateWaitIdleOnPath)
+          //   && serf_prev_dir < 0){
           if (serf_prev_dir < 0){
             serf_prev_dir += 6;
             serf_prev_dir = reverse_direction(Direction(serf_prev_dir));  // why are serf walking dirs backwards?
             //serf_counter_max = 127;  // this is always 127 when waiting
           }
+
           if (ticks_since_change <= transition){
             pig_x_off = pig_sprite_offset[serf_prev_dir*2]  *(transition-double(ticks_since_change))/transition + pig_sprite_offset[serf_dir*2  ]*double(ticks_since_change)/transition;
             pig_y_off = pig_sprite_offset[serf_prev_dir*2+1]*(transition-double(ticks_since_change))/transition + pig_sprite_offset[serf_dir*2+1]*double(ticks_since_change)/transition;
@@ -2777,7 +2792,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         //  Log::Info["viewport.cc"] << "pig farmer y dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim;
         //}
       }else{
-        Log::Info["viewport.cc"] << "pig farmer z dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim;
+        //Log::Info["viewport.cc"] << "pig sprite z dir " << serf_dir << ", last_dir " << serf_prev_dir << ", counter " << serf_counter << ", counter_max " << serf_counter_max << ", anim " << serf_anim;
       }
       // draw the pig behind the serf, a dynamic offset that follows the serf along the tile
       int pig_x = lx + pig_x_off;
