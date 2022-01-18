@@ -813,7 +813,7 @@ Viewport::draw_ocupation_flag(Building *building, int lx, int ly, float mul) {
 
 void
 Viewport::draw_unharmed_building(Building *building, int lx, int ly) {
-  Random random;
+  Random random;  // doesn't this create a new Random and seed it???
 
   static const int pigfarm_anim[] = {
     0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa2, 0, 0xa3, 0,
@@ -2762,7 +2762,6 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         //  except don't use lx/ly here because the serf that controls it is moving around
         //  instead, use the center of the MapPos as the x and y base
         int pigs_count = 8;
-        int pannage_x_adjust = 0;    // manual tweaking of pigs center pos, as pigs_layout sets it well under height-adjusted center of pos
         int pannage_y_adjust = -10;  // manual tweaking of pigs center pos
         for (int p = 1; p <= pigs_count; p++) {
           if (pigs_count >= pigs_layout[p * 4]) {
@@ -2796,7 +2795,7 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
             // pig 8 is far-right                          3 o'clock - draw in front
             if (p == 2 || p == 4 || p == 7 || p == 8){ 
               // others are drawn in draw_serf_row_behind
-              draw_game_sprite(center_x + pannage_x_adjust + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
+              draw_game_sprite(center_x + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
                                 center_y + pannage_y_adjust + pigs_layout[p * 4 + 3], pig_frame);
             }
           }
@@ -2874,44 +2873,47 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         if (dir_used == 4){ pig_sprite_left_right = 301; }  // custom, +1 from 300
         if (dir_used == 5){ pig_sprite_left_right = 303; }  // custom, +1 from 302
 
-        //int anim_offset = 0;
-        int pig_sprite = 0;
-        // if serf is waiting, instead of having pigs feet as if walking
-        //  let them dig in the ground and roll
-                                    // wait a bit before letting the pigs do their thing
-        //if (serf_counter_max == 127 && ticks_since_change > 2 * transition){
-        if (serf_counter_max == 127 && transition == 0){   // this should cause the pigs to become "idle" only after the first cycle of serf waiting, then counter is reset and transition should be zero until the serf moves again
-          // I can't make sense of the pig animation stuff, using an alternate way
-          // doesn't work
-          //int i = (interface->get_game()->get_tick() >> 4) & 9;
-          //if (pig_sprite_left_right == 162){  // right    // wait, let it work same for left or right
-            //anim_offset = i;
-            //pig_sprite_left_right = pigfarm_anim[i];
-            int pigs_count = 1;
-            for (int p = 1; p <= pigs_count; p++) {
-              if (pigs_count >= pigs_layout[p * 4]) {
-                int i = (pigs_layout[p * 4 + 1]
-                        + (interface->get_game()->get_tick() >> 3)) & 0xfe;
-                //draw_game_sprite(lx + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
-                //                 ly + pigs_layout[p * 4 + 3], pigfarm_anim[i]);
-                Log::Info["viewport.cc"] << "inside draw_active_serf, pigfarm i = " << i;
-                pig_sprite = pigfarm_anim[i];
-                break;
+        int pigs_count = 8;
+        for (int p = 1; p <= pigs_count; p++) {
+          if (pigs_count >= pigs_layout[p * 4]) {
+            int i = (pigs_layout[p * 4 + 1]
+                    + (interface->get_game()->get_tick() >> 3)) & 0xfe;
+            // if serf is waiting,  let the pigs dig in the ground and roll
+            // wait a bit before letting the pigs do their thing
+            // this should cause the pigs to become "idle" only after the first
+            // cycle of serf waiting, then counter is reset and transition 
+            // should be zero until the serf moves again
+            if (serf_counter_max == 127 && transition == 0){   
+              // draw "pigs idle" rolling and such
+              //
+              // PASTE THE ORIGINAL PIGS IDLE CODE HERE (with usual tweaks)
+              //
+            }else{
+              // draw pigs following pig farmer as he walks
+              
+              // have each pigs position wander a bit randomly
+              Random *rnd = interface->get_game()->get_rand();
+              if (rnd->random() > double(UINT16_MAX) * 0.95){
+                if(rnd->random() %  7 == 0){ pig_x -= 1; }
+                if(rnd->random() % 11 == 0){ pig_x += 1; }
+                if(rnd->random() % 13 == 0){ pig_y -= 1; }
+                if(rnd->random() % 23 == 0){ pig_y += 1; }
+              }
+
+
+              int pannage_y_adjust = -10;  // manual tweaking of pigs center pos
+              if (pig_sprite_left_right >= 300){
+                // custom graphics for game_object 300+
+                //  which is pigs going up-right, down-right, up-left, down-left
+                //  which do not exist in the normal game as pigs cannot move freely there
+                draw_game_sprite_custom(pig_x + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
+                                    pig_y + pannage_y_adjust + pigs_layout[p * 4 + 3], pig_sprite_left_right + feet_anim_offset);
+              }else{
+                draw_game_sprite(pig_x + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
+                                    pig_y + pannage_y_adjust + pigs_layout[p * 4 + 3], pig_sprite_left_right + feet_anim_offset);
               }
             }
-          //}
-        }else{
-          //anim_offset = feet_anim_offset;
-          pig_sprite = pig_sprite_left_right + feet_anim_offset;
-        }
-
-        //draw_game_sprite(pig_x, pig_y, pig_sprite_left_right + anim_offset);
-        //draw_game_sprite(pig_x, pig_y, pig_sprite);
-        // custom graphics for game_object 300+
-        if (pig_sprite >= 300){
-          draw_game_sprite_custom(pig_x, pig_y, pig_sprite);
-        }else{
-          draw_game_sprite(pig_x, pig_y, pig_sprite);
+          }
         }
       }  // if serf in StatePannage
     } else {
@@ -3241,7 +3243,6 @@ Viewport::draw_serf_row_behind(MapPos pos, int y_base, int cols, int x_base) {
         //  except don't use lx/ly here because the serf that controls it is moving around
         //  instead, use the center of the MapPos as the x and y base
         int pigs_count = 8;
-        int pannage_x_adjust = 0;    // manual tweaking of pigs center pos, as pigs_layout sets it well under height-adjusted center of pos
         int pannage_y_adjust = -10;  // manual tweaking of pigs center pos
         for (int p = 1; p <= pigs_count; p++) {
           if (pigs_count >= pigs_layout[p * 4]) {
@@ -3275,7 +3276,7 @@ Viewport::draw_serf_row_behind(MapPos pos, int y_base, int cols, int x_base) {
             // pig 8 is far-right                          3 o'clock - draw in front
             if (p == 1 || p == 3 || p == 5 || p == 6){ 
               // others are drawn in draw_serf_row
-              draw_game_sprite(center_x + pannage_x_adjust + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
+              draw_game_sprite(center_x + pigfarm_anim[i + 1] + pigs_layout[p * 4 + 2],
                                 center_y + pannage_y_adjust + pigs_layout[p * 4 + 3], pig_frame);
             }
           }
