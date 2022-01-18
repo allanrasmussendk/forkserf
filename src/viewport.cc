@@ -711,6 +711,7 @@ Viewport::draw_serf(int lx, int ly, const Color &color, int head, int body) {
   //  so it does not need to be drawn separately
   // if head is 0+, get the correct serf head type and draw it
   if (head >= 0) {
+    // the values delta_x and delta_y seem to be used to determine the head offset here
     frame->draw_sprite_relatively(lx, ly, Data::AssetSerfHead, head,
                                   Data::AssetSerfTorso, body);
   }
@@ -1571,6 +1572,19 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
   // NOTE - ALL ANIMATIONS ARE PLAYED IN REVERSE ORDER THAT THE FRAMES APPEAR IN THE .ini file!!!!
   // *********************************************************************************************
   //
+  // there are multiple x,y offset values used in the process:
+  // values inside the animation dir ###.ini:
+  //         x/y       used in  animation = Data::get_instance().get_data_source_Custom()->get_animation(serf->get_animation(), serf->get_counter());
+  //                       this affects the SHADOW placement!
+  // values inside serf_torso meta.ini:
+  //   delta_x/y       used in draw_sprite_relatively, this is the serf's head placement relative to the body (if there is a separate head)
+  //  offset_x/y       affected by the use_off bool passed to the draw functions
+  //                       this does not affect shadow placement
+  //  
+  //   int lx = x_base + animation.x;
+  //   int ly = y_base + animation.y - 4 * map->get_height(pos);
+  //
+  //
   // tables contains X & Y values (x & x+1)
   //   X is the first value of the serf_torso animation group sprite set, serf_torso has values 0-540
   //
@@ -1710,6 +1724,9 @@ Viewport::draw_row_serf(int lx, int ly, bool shadow, const Color &color,
 
   /* Shadow */
   if (shadow) {
+    // because there is no "shadow x/y offset" value that can be
+    //  configured in the custom sprite/animation data ini files,
+    //  the shadow MUST be at the center 
     frame->draw_sprite(lx, ly, Data::AssetSerfShadow, 0, true);
   }
 
@@ -2144,60 +2161,13 @@ Viewport::serf_get_body(Serf *serf) {
     break;
     */
   // testing pannage
-  /* hacked to pieces, setting aside for a bit
-  case Serf::TypePigFarmer:   // copied from Lumberjack
-    //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", before changing, t = " << t;
-    if (t < 0x80) {  // if sprite is 0-127
-        // if serf is carrying a resource to drop off at flag, prefix with "serf carrying" animation
-      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", t < 128, t = " << t;
-      if (serf->get_state() == Serf::StateFreeWalking &&
-          serf->get_free_walking_neg_dist1() == -128 &&
-          serf->get_free_walking_neg_dist2() == 1) {
-        //t += 0x1000; // lumberjack carrying resource sprite
-        t += 0x3400;   // pig farmer carrying resource sprite
-        //0x3400 is 13312 which is 11010000000000
-        //      >>8 is 52 which is 110100
-      } else {
-        // otherwise prefix with "serf walking" animation
-        //t += 0xb00;  // lumberjack walking sprite
-        t += 0x3200;   // pig farmer walking sprite
-        //0x3200 is 12800 which is 11001000000000
-      }
-    } else if ((t == 0x86 && !serf->playing_sfx()) ||  // if sprite is 134 and not already playing sound, OR if sprite is 133... play sound and prefix with "serf working" animation
-          t == 0x85) {
-      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", doing start_playing_sfx, t = " << t;
-      serf->start_playing_sfx();
-      play_sound(Audio::TypeSfxAxBlow);
-      // TODO Dangerous reference to unknown state vars.
-      //    It is probably free walking.
-      if (serf->get_free_walking_neg_dist2() == 0 &&
-          serf->get_counter() < 64) {
-        //play_sound(Audio::TypeSfxTreeFall);
-        play_sound(Audio::TypeSfxTreeFall, DataSourceType::DOS);  // DOS sound is better
-      }
-      t += 0xe80; // lumberjack start a chop ? sprite
-      //t += 0x3280;  // pig farmer dumping bucket for pigs sprite  ???
-    } else if (t != 0x86) {  // if is >=128 and not 133 or 134, stop any sound that might be playing and prefix with "serf working" animation
-      //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", else, t = " << t;
-      serf->stop_playing_sfx();
-      t += 0xe80; // lumberjack end of one chop ? sprite
-      //t += 0x3280;  // pig farmer dumping bucket for pigs sprite  ???
-      //  0xe80 is 3712 which is 00111010000000
-      //    >>8 is   14 which is 001110
-    }
-    //Log::Info["viewport.cc"] << "inside serf_get_body for serf #" << serf->get_index() << ", of type " << NameSerf[serf->get_type()] << ", after changing, t = " << t;
-    */
-  // second test off pannage
   case Serf::TypePigFarmer:
     if (t < 128) {
       // sprites   0-127 are "walking sprites", I think
-      t += 0x3200;   // pig farmer walking (not carrying res), results in serf-walking-without-res sprites 0-47, and fixed pigfarmer head facing dirs 0-5
+      t += 0x3200; // pig farmer walking (not carrying res), results in serf-walking-without-res sprites 0-47, and static pigfarmer head facing dirs 0-5
     } else {
       // sprites 128-255 are "working sprites", I think
-      //t += 0x3280;   // pig farmer dumping bucket for pigs animation 
-      //t += 0xe80; // lumberjack start a chop ? sprite
-      //t += 35072;  // NEW SPRITE/ANIMATION SET - pig farmer whacking tree, after >>8 & 255 * 2 should result in #274
-      t += 34944;  // NEW SPRITE/ANIMATION SET - pig farmer whacking tree, after >>8 & 255 * 2 should result in #274
+      t += 34944;  // NEW SPRITE/ANIMATION SET - pig farmer whacking tree, after, >>8 & 255 * 2 should result in #274
     }
     break;
   case Serf::TypeButcher:
@@ -2616,9 +2586,10 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
         if (draw_boat_pickup){ draw_row_serf(pickup_x, pickup_y, true, color, pickup_body);}
         if (draw_boat_dropoff){ draw_row_serf(dropoff_x, dropoff_y, true, color, dropoff_body);}
       }
-    // temp disabling for now
-    //} else if (serf->get_type() == Serf::TypePigFarmer){
-    } else if (false){
+    } else if (serf->get_type() == Serf::TypePigFarmer
+                && (serf->get_state() == Serf::StateWalking
+                || serf->get_state() == Serf::StateFreeWalking
+                || serf->get_state() == Serf::StateWaitIdleOnPath)){
       // experimenting with pannage/pig foraging
 
         static const int pigfarm_anim[] = {
@@ -2729,6 +2700,10 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
 
       static const int walking_counter_from_animation[] = {
       // copied from the beginning of counter_from_animation in Serf.cc
+      // valid PigFarmer states are
+      //  walking (including carrying resource (dead Pig) & Waiting (0-80)
+      //  dumping bucket for pigs (139)
+      //  whacking tree / pannage (181)
       /* Walking (0-80) */
       511, 447, 383, 319, 255, 319, 511, 767, 1023,
       511, 447, 383, 319, 255, 319, 511, 767, 1023,
@@ -2738,17 +2713,25 @@ Viewport::draw_active_serf(Serf *serf, MapPos pos, int x_base, int y_base) {
       511, 447, 383, 319, 255, 319, 511, 767, 1023,
       511, 447, 383, 319, 255, 319, 511, 767, 1023,
       511, 447, 383, 319, 255, 319, 511, 767, 1023,
-      511, 447, 383, 319, 255, 319, 511, 767, 1023
+      511, 447, 383, 319, 255, 319, 511, 767, 1023,
+      0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,    // 90-100 unused for pigfarmer
+      0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,    //100-120 unused for pigfarmer
+      0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,383,0,  //120-140 includes anim#139 w/ counter 383, though no accessory pigs drawn here
+      0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,    //140-160 unused for pigfarmer
+      0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,    //160-180 unused for pigfarmer
+      663,                                         //181+ new animation set
       };
 
       int serf_counter_max = walking_counter_from_animation[serf_anim];
+      Log::Info["viewport.cc"] << "inside draw_active_serf, serf_counter_max from table is " << serf_counter_max;
       // the serf counter is reset whenever serf changes direction, but the number it resets to isn't clear (relates to tile height diff?)
       // why are serf walking dirs backwards?
       int serf_prev_dir = serf->get_walking_prev_dir();
       int serf_dir = serf->get_walking_dir();
       // handle waiting state
-      if ((serf->get_state() == Serf::StateWalking || serf->get_state() == Serf::StateFreeWalking || serf->get_state() == Serf::StateWaitIdleOnPath)
-          && serf_dir < 0){
+      if (serf_dir < 0){
+      //if ((serf->get_state() == Serf::StateWalking || serf->get_state() == Serf::StateFreeWalking || serf->get_state() == Serf::StateWaitIdleOnPath)
+      //    && serf_dir < 0){
         Log::Info["viewport.cc"] << "inside draw_active_serf, serf_dir " << serf_dir << " is < 0, serf must be waiting, setting serf_counter_max to 127";
         serf_dir += 6;
         serf_dir = reverse_direction(Direction(serf_dir));  // why are serf walking dirs backwards?

@@ -206,7 +206,7 @@ static const int counter_from_animation[] = {
   /* Pannage (181) - PigFarmer walk-a-bit-left and hit Tree with stick and watch
                       acorns falling, then stare up at at tree a while,
                       then walk-a-bit-right the center of tree again for next state */
-  570,
+  663,   // seems to be about 7.8 per frame, ex. 68 frames is 530, 72 frames is 560
 };
 
 
