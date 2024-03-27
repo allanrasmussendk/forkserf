@@ -1781,6 +1781,14 @@ Interface::handle_key_pressed(char key, int modifier) {
 bool
 Interface::handle_event(const Event *event) {
   //Log::Debug["interface.cc"] << "inside Interface::handle_event, type " << event->type;
+
+  // hack to close notification box when left clicked, it isn't working right since enabling dragging/multiple popups
+  // it is still being drawn and blocking other popups even when 'displayed' is no longer true
+  if ((notification_box != nullptr) && !notification_box->is_displayed()) {
+    Log::Debug["interface.cc"] << "inside Interface::handle_event(), applying hack to close notification message because notification_box->is_displayed is false";
+    close_message();
+  }
+
   switch (event->type) {
     case Event::TypeResize:
       //Log::Debug["interface.cc"] << "inside Interface::handle_event, TypeResize";
