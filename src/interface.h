@@ -293,6 +293,7 @@ class Interface : public GuiObject, public GameManager::Handler {
   virtual void internal_draw();
   virtual void layout();
   virtual bool handle_key_pressed(char key, int modifier);
+  virtual bool handle_numpad_key_pressed(char key);  // for serf possession
 
   void set_ai_ptr(unsigned int index, AI *ai) { ai_ptrs[index] = ai; }
 

@@ -156,7 +156,8 @@ class Serf : public GameObject {
      original save game. */
     StateKnightAttackingDefeatFree,
     StateWaitForBoat,   // to support option_CanTransportSerfsInBoats
-    StateBoatPassenger // to support option_CanTransportSerfsInBoats
+    StateBoatPassenger, // to support option_CanTransportSerfsInBoats
+    StatePossessed      // to support option_SerfPossession
     /* removing AdvancedDemolition for now, see https://github.com/forkserf/forkserf/issues/180
     StateExitBuildingForDemolition,    // to support option_AdvancedDemolotion 
     StateObservingDemolition,          // to support option_AdvancedDemolotion
@@ -298,6 +299,11 @@ class Serf : public GameObject {
     } lost;
 
     struct {
+      int field_B; 
+      int dir;
+    } possessed;
+
+    struct {
       unsigned int substate; /* B */
       int res; /* D */
       Map::Minerals deposit; /* E */
@@ -434,6 +440,7 @@ class Serf : public GameObject {
   int train_knight(int p);
 
   void set_lost_state();
+  void set_possessed_state();
 
   void add_to_defending_queue(unsigned int next_knight_index, bool pause);
   void init_generic(Inventory *inventory);
@@ -524,6 +531,9 @@ class Serf : public GameObject {
   //   serf wait timers
   bool is_waiting(Direction *dir);
 
+  // allow serf possession control
+  void possessed_change_direction(Direction dir);
+
  protected:
   // moved to public so AI can use it to check for stuck serfs
   //   wait, does this still need to be moved?  I think I changed the approach to
@@ -566,6 +576,7 @@ class Serf : public GameObject {
   void handle_serf_free_walking_switch_with_other();
   int handle_free_walking_follow_edge();
   void handle_free_walking_common();
+  void handle_serf_possessed_state();
   void handle_serf_free_walking_state();
   void handle_serf_logging_state();
   void handle_serf_planning_logging_state();

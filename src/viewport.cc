@@ -4249,6 +4249,8 @@ Viewport::internal_draw() {
 bool
 Viewport::handle_numpad_key_pressed(char key) {
   Log::Debug["viewport"] << "inside Viewport::handle_numpad_key_pressed with key " << int(key);
+  Log::Warn["viewport"] << "NOT MOVING VIEWPORT - INSTEAD USING POSSESSION DIRECTIONS!";
+  return false;
   switch (key){
     case 6: interface->update_map_cursor_pos(map->move_right(interface->get_map_cursor_pos())); break;
     case 3: interface->update_map_cursor_pos(map->move_down_right(interface->get_map_cursor_pos())); break;

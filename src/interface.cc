@@ -1518,7 +1518,7 @@ Interface::handle_key_pressed(char key, int modifier) {
       break;
     }
 
-/* disabling this as I am not using it now
+/* THIS DOESN'T EVEN WORK ANYMORE!!
     // debugging function to "boot" clicked serf by making them Lost (only works for AI players currently)
     case 'l': {
       if (modifier & 1) {
@@ -1531,8 +1531,24 @@ Interface::handle_key_pressed(char key, int modifier) {
           ai_ptr->set_serf_lost();
         }
       }
+      break;
     }
 */
+    case 'l': {
+      if (modifier & 1) {
+        Log::Info["interface"] << "CTRL-L pressed, possessing THE FIRST SERF in debug_mark_pos list";
+        std::vector<int> debug_mark_serf = *(game->get_debug_mark_serf());
+        for (int serf_index : debug_mark_serf){
+          if (game->get_serf(serf_index) != nullptr){
+            Log::Info["interface"] << "CTRL-L pressed, possessing serf with index " << serf_index;
+            game->get_serf(serf_index)->set_possessed_state();
+            // for now only do the first serf, to avoid issues
+            break;
+          }
+        }
+      }
+      break;
+    }
 
     // open popup for next Mine (for this player), for conveniently cycling through all player's mines (to check for expiry)
     case 'i': {
@@ -1775,6 +1791,44 @@ Interface::handle_key_pressed(char key, int modifier) {
       return false;
   }
 
+  return true;
+}
+
+// use the numpad directions to move possessed serf
+bool
+Interface::handle_numpad_key_pressed(char key) {
+  Log::Debug["interface.cc"] << "inside Interface::handle_numpad_key_pressed with key " << int(key);
+
+  Serf *possessed_serf = nullptr;
+  std::vector<int> debug_mark_serf = *(game->get_debug_mark_serf());
+  for (int serf_index : debug_mark_serf){
+    if (game->get_serf(serf_index) != nullptr){
+      Log::Info["interface.cc"] << "numpad direction pressed, trying to move possessed serf in a specified direction";
+      possessed_serf = game->get_serf(serf_index);
+      // for now only do the first serf, to avoid issues
+      break;
+    }
+  }
+  if (possessed_serf == nullptr){
+    Log::Info["interface.cc"] << "numpad direction pressed, but no possessed serf found, nothing to do";
+    return true;
+  }
+  Log::Info["interface.cc"] << "numpad direction pressed, and a possessed serf was found with index " << possessed_serf->get_index();
+  Direction dir = DirectionNone;
+  switch (key){
+    case 6: dir = DirectionRight; break;
+    case 3: dir = DirectionDownRight; break;
+    case 2: dir = DirectionDown; break;
+    case 4: dir = DirectionLeft; break;
+    case 7: dir = DirectionUpLeft; break;
+    case 8: dir = DirectionUp; break;
+    case 0: Log::Info["interface.cc"] << "numpad direction 0 pressed, NOT IMPLEMENTED YET, USE TO CANCEL POSSESSION?"; break;
+    default: 
+      Log::Warn["interface.cc"] << "Interface::handle_numpad_key_pressed, invalid key '" << key << "' pressed";
+      return true;
+  }
+  Log::Info["interface.cc"] << "numpad direction pressed, trying to move possessed serf in direction " << NameDirection[dir];
+  possessed_serf->possessed_change_direction(dir);
   return true;
 }
 

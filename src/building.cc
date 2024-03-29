@@ -144,6 +144,14 @@ Building::done_leveling() {
 
 bool
 Building::build_progress() {
+  // build castle instantly
+  if (type == TypeCastle) {
+    Log::Warn["building.cc"] << "inside Building::build_progress, INSTANTLY BUILDING CASTLE!";
+    progress = 0;
+    constructing = false;
+    holder_or_first_knight = 0;
+    return true;
+  }
   int frame_finished = !!BIT_TEST(progress, 15);
   progress += (frame_finished == 0) ? const_info[type].phase_1
                                     : const_info[type].phase_2;

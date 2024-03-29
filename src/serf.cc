@@ -268,9 +268,10 @@ static const char *serf_state_name[] = {
   "KNIGHT ATTACKING DEFEAT FREE",  // SERF_STATE_KNIGHT_ATTACKING_DEFEAT_FREE
   "WAIT FOR BOAT",  // SERF_STATE_WAIT_FOR_BOAT
   "PASSENGER IN BOAT",  // SERF_STATE_PASSENGER_IN_BOAT
-  "EXITING BUILDING TO DEMO",
-  "OBSERVING DEMOLITION",
-  "CLEANING UP RUBBLE"
+//  "EXITING BUILDING TO DEMO",
+//  "OBSERVING DEMOLITION",
+//  "CLEANING UP RUBBLE",
+  "POSSESSED"
 };
 
 
@@ -1017,6 +1018,24 @@ Serf::set_lost_state() {
   }
 }
 
+// Change serf state to possessed
+void
+Serf::set_possessed_state() {
+  Log::Debug["serf"] << "inside set_possessed_state, serf #" << this->get_index() << " of type " << NameSerf[type] << " being set to Possessed";
+  set_state(StatePossessed);
+  s.possessed.field_B = 0;
+  // for now, allow the serf in any state to be interrupted
+  //  if the serf is not walking or transporting, just default to DirectionRight
+  if (s.walking.dir >= 0 || s.transporting.dir >= 0){
+    Log::Debug["serf"] << "inside set_possessed_state, serf is already walking or transporting, will stop same facing dir";
+    s.possessed.dir = s.walking.dir;
+  }else{
+    Log::Debug["serf"] << "inside set_possessed_state, serf is being interrupted from a non-walking/transporting state, setting DirectionRight and counter 0";
+    s.possessed.dir = 0;
+    counter = 0;
+  }
+}
+
 /* Return true if serf is waiting for a position to be available.
    In this case, dir will be set to the desired direction of the serf,
    or DirectionNone if the desired direction cannot be determined. */
@@ -1155,6 +1174,51 @@ Serf::get_walking_animation(int h_diff, Direction dir, int switch_pos) {
   int d = dir;
   if (switch_pos && d < 3) d += 6;
   return 4 + h_diff + 9*d;
+}
+
+/* Preconditon: serf is in WALKING or TRANSPORTING state */
+// NOTE - it would be nice if the serf went to "standing" animation frame instead of mid-walking when reaching pos and stopping
+void
+Serf::possessed_change_direction(Direction new_dir) {
+  Log::Info["serf.cc"] << "inside Serf::possessed_change_direction";
+  if (new_dir == DirectionNone){
+    Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, no direction selected!  returning";
+    return;
+  }
+  Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, dir: " << NameDirection[new_dir];
+  if (state != Serf::StatePossessed){
+    Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, this serf is not in possessed state!  returning";
+    return;
+  }
+
+  
+  if (counter <= 0){
+    Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, serf is ready to move to the next pos, calling change_direction for dir " << NameDirection[new_dir];
+    change_direction(new_dir, 1);
+  }else{
+    Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, serf has not reached next pos yet, counter=" << counter;
+    if (s.possessed.dir == new_dir){
+      Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, serf is being directed to move the same way he is already going, and hasn't reached next pos.  doing nothing";
+    }else{
+      // CANNOT ALLOW MID-STOP DIRECTION CHANGE
+      // - it looks bad unless they are switching to exact opposite dir
+      // - I think it is complicated by if the next pos is actually free?  I am not sure
+      /*
+      Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, serf is being directed to change dir mid-step";
+      PMap map = game->get_map();
+      //map->set_serf_index(pos, 0);
+      //MapPos old_next_pos = map->move(pos, dir);
+      int progress = counter_from_animation[animation] - counter;
+      MapPos new_next_pos = map->move(pos, new_dir);
+      animation = get_walking_animation(map->get_height(new_next_pos) - map->get_height(pos), (Direction)new_dir, 0);
+      // need to figure out if it is possible to determine the correct counter while switching walking direction
+      //  that results in the serf keeping the same location and not jumping around
+      counter = counter_from_animation[animation] - progress;
+      s.possessed.dir = new_dir;
+      */
+      Log::Info["serf.cc"] << "inside Serf::possessed_change_direction, serf is not ready to move to the next pos yet, doing nothing";
+    }
+  }
 }
 
 /* Preconditon: serf is in WALKING or TRANSPORTING state */
@@ -4400,6 +4464,17 @@ Serf::handle_serf_free_walking_state() {
 }
 
 void
+Serf::handle_serf_possessed_state() {
+  uint16_t delta = game->get_tick() - tick;
+  tick = game->get_tick();
+  counter -= delta;
+
+  if (counter < 0){
+    counter = 0;
+  }
+}
+
+void
 Serf::handle_serf_logging_state() {
   uint16_t delta = game->get_tick() - tick;
   tick = game->get_tick();
@@ -7288,6 +7363,9 @@ Serf::update() {
     handle_serf_cleaning_rubble_state();
     break;
   */
+  case StatePossessed:
+    handle_serf_possessed_state();
+    break;
   default:
     Log::Debug["serf"] << "Serf state " << state << " isn't processed";
     state = StateNull;

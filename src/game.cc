@@ -1307,6 +1307,9 @@ Game::pause() {
 
 void
 Game::speed_increase() {
+  Log::Warn["game"] << "DIRECTLY SETTING GAME SPEED TO 40";
+  game_speed = 40;
+  return;
   if (game_speed < 40) {
     game_speed += 1;
     // it seems that FPS stops increasing once tick_length is reduced to 10ms
