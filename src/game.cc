@@ -1289,6 +1289,7 @@ Game::update() {
   update_flags();
   update_buildings();
   update_serfs();
+  update_possessed_serfs_FogOfWar();  // for serf possession and option_FogOfWar
   update_game_stats();
 }
 
@@ -2740,6 +2741,8 @@ Game::init_FogOfWar() {
   for (Building *building : buildings) {
     update_FogOfWar(building->get_position());
   }
+  // for serf possession
+  update_possessed_serfs_FogOfWar();
   mutex_unlock();
 }
 
@@ -2873,6 +2876,53 @@ const int _spiral_dist[49] = { 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 39
     }
   }else{
     //Log::Debug["game.cc"] << "inside of Game::update_FogOfWar, no building found at init_pos " << init_pos << ", assuming this was a destroyed/lost building.  Not setting revealed";
+  }
+}
+
+void
+Game::update_possessed_serfs_FogOfWar() {
+  Log::Debug["game.cc"] << "start of Game::update_possessed_serfs_FogOfWar";
+
+  for (int serf_index : *(get_debug_mark_serf())){
+    Serf *serf = get_serf(serf_index);
+    if (serf == nullptr){
+      Log::Debug["game.cc"] << "start of Game::update_possessed_serfs_FogOfWar, debug marked serf is nullptr!";
+      continue;
+    }
+    if (serf->get_state() != Serf::StatePossessed){
+      Log::Debug["game.cc"] << "start of Game::update_possessed_serfs_FogOfWar, debug marked serf is note in possessed state!";
+      continue;
+    }
+    update_possessed_serf_FogOfWar(serf);
+  }
+}
+
+void
+Game::update_possessed_serf_FogOfWar(Serf *possessed_serf) {
+  Log::Debug["game.cc"] << "start of Game::update_possessed_serf_FogOfWar";
+
+  if (possessed_serf == nullptr){
+    Log::Debug["game.cc"] << "start of Game::update_possessed_serf_FogOfWar, debug marked serf is nullptr!";
+    return;
+  }
+  if (possessed_serf->get_state() != Serf::StatePossessed){
+    Log::Debug["game.cc"] << "start of Game::update_possessed_serf_FogOfWar, debug marked serf with index "  <<  possessed_serf->get_index() << "is note in possessed state!";
+    return;
+  }
+
+  // need to redraw terrain for FoW updates to be visible
+  set_must_redraw_frame();
+
+  // copied from AI::spiral_dist, MAKE THIS GLOBAL!
+  const int _spiral_dist[49] = { 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397,
+    469, 547, 631, 721, 817, 919, 1027, 1141, 1261, 1387, 1519, 1657, 1801, 1951,
+    2107, 2269, 2437, 2611, 2791, 2977, 3169, 3367, 3571, 3781, 3997, 4219, 4447,
+    4681, 4921, 5167, 5419, 5677, 5941, 6211, 6487, 6769 };
+
+  for (int i = 0; i < _spiral_dist[8]; i++) {
+    MapPos pos = map->pos_add_extended_spirally(possessed_serf->get_pos(), i);
+    map->set_visible(pos, possessed_serf->get_owner());
+    map->set_revealed(pos, possessed_serf->get_owner());
   }
 }
 

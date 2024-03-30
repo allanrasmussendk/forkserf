@@ -256,6 +256,8 @@ class Game {
   void update_land_ownership(MapPos pos);
   void init_FogOfWar();  // option_FogOfWar
   void update_FogOfWar(MapPos pos);  // option_FogOfWar
+  void update_possessed_serfs_FogOfWar();  // option_FogOfWar and serf possession
+  void update_possessed_serf_FogOfWar(Serf *possessed_serf);  // option_FogOfWar and serf possession
   void occupy_enemy_building(Building *building, int player);
 
   void cancel_transported_resource(Resource::Type type, unsigned int dest);
