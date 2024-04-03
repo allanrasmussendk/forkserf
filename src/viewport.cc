@@ -4496,10 +4496,12 @@ Viewport::handle_special_click(int lx, int ly) {
         }else{
           player->building_attacked = building->get_index();
 
-          if (building->is_done() &&
-              building->is_military()) {
-            if (!building->is_active() ||
-                building->get_threat_level() != 3) {
+          // new logic for combat overhaul / pillaging
+          //if (building->is_done() &&
+          //    building->is_military()) {
+          //  if (!building->is_active() ||
+          //      building->get_threat_level() != 3) {
+            if (false){
               /* It is not allowed to attack
                 if currently not occupied or
                 is too far from the border. */
@@ -4526,19 +4528,26 @@ Viewport::handle_special_click(int lx, int ly) {
             /* Action accepted */
             play_sound(Audio::TypeSfxClick);
 
+            //
+            // I believe this logic is setting the *default number of knights to send*
+            //  to the attack, in the popup window, and is not really any kind of limit
+            //  so for the purpose of combat overhaul / pillaging sending a low number
+            //  of knights is reasonable
+            //
             int max_knights = 0;
             switch (building->get_type()) {
               case Building::TypeHut: max_knights = 3; break;
               case Building::TypeTower: max_knights = 6; break;
               case Building::TypeFortress: max_knights = 12; break;
               case Building::TypeCastle: max_knights = 20; break;
-              default: NOT_REACHED(); break;
+              //default: NOT_REACHED(); break;
+              default: max_knights = 1; break;  // default to sending one knight to a civilian building
             }
 
             int knights = player->knights_available_for_attack(building->get_position());
             player->knights_attacking = std::min(knights, max_knights);
             interface->open_popup(PopupBox::TypeStartAttack);
-          }
+          //} // if is valid military target
         } // if option_FogOfWar and not visible
       }
     }
@@ -4561,7 +4570,7 @@ Viewport::handle_mouse_button_down(int lx, int ly, Event::Button button) {
 bool
 Viewport::handle_drag(int lx, int ly) {
   //set_resize_tainted(); // it seems dragging it also does same thing as resizing window
-  Log::Debug["viewport.cc"] << "inside Viewport::handle_drag lx,ly = " << lx << "," << ly;
+  //Log::Debug["viewport.cc"] << "inside Viewport::handle_drag lx,ly = " << lx << "," << ly;
   if (lx != 0 || ly != 0) {
     move_by_pixels(lx, ly);
   }

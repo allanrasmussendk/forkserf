@@ -3492,6 +3492,9 @@ void
 Serf::handle_serf_free_walking_state_dest_reached() {
   if (s.free_walking.neg_dist1 == -128 &&
       s.free_walking.neg_dist2 < 0) {
+    //
+    // support for option_LostTransportersClearFaster
+    //
     //NOTE - I originally left this code in place so that if a serf was already on way to a non-Inventory building to clear
     //  but option_LostTransportersClearFaster was off (either because of game load, or simply turned off), the serf would 
     //  still be able to exit into the non-Inv building to avoid contention and possibly crash bugs.  But, what I am noticing
@@ -3527,7 +3530,7 @@ Serf::handle_serf_free_walking_state_dest_reached() {
         }
       }
     }
-    // otherwise, find nearest inventory and send the serf there
+    // otherwise, (normal behavior) find nearest inventory and send the serf there
     find_inventory();
     return;
   }
@@ -3764,9 +3767,34 @@ Serf::handle_serf_free_walking_state_dest_reached() {
     case TypeKnight2:
     case TypeKnight3:
     case TypeKnight4:
+      Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination";
       if (s.free_walking.neg_dist1 == -128) {
         find_inventory();
       } else {
+        Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination enemy building, setting state StateKnightOccupyEnemyBuilding";
+        // support for new combat system, pillaging
+        // if this is an enemy building
+        MapPos building_pos = map->move_up_left(pos);
+        if ( map->has_building(building_pos)
+          && map->has_owner(building_pos)
+          && map->get_owner(building_pos) != get_owner()
+            ){
+          Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, trying to burn it";
+          Building *pillage_building = game->get_building_at_pos(building_pos);
+          if (pillage_building == nullptr){
+            Log::Warn["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, but the Building is nullptr!";
+          }else{
+            Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, BURNING IT!";
+            game->demolish_building(building_pos, game->get_player(pillage_building->get_owner()));
+          }
+          //
+          // how to make the knight return to his original building after pillaging?
+          //  in the normal game, if a knight cannot occupy the captured building because it is full, what happens? 
+          //  currently, if no new logic added, the knight will become Lost after entering StateKnightOccupyEnemyBuilding
+          //  in Serf::handle_knight_occupying_building because the civilian building isn't eligible 
+          //   I think this actually fine, and likely the original behavior when a the captured building is full
+          //
+        }
         set_state(StateKnightOccupyEnemyBuilding);
         counter = 0;
       }
@@ -5903,7 +5931,8 @@ Serf::handle_serf_knight_engaging_building_state() {
           building->is_military() &&
           building->get_owner() != get_owner() &&
           building->has_knight()) {
-        if (building->is_under_attack()) {
+        //if (building->is_under_attack()) {
+        if (building->is_under_attack_new()) {
           game->get_player(building->get_owner())->add_notification(
                                                  Message::TypeUnderAttack,
                                                        building->get_position(),

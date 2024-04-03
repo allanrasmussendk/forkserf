@@ -3985,7 +3985,8 @@ AI::attack_best_target(MapPosSet *scored_targets, int loss_tolerance) {
     }
 
     // avoid attacking again while attack already in progress... most of the time
-    if (target_building->is_under_attack() && game->random_int() & 7 == 0){
+    //if (target_building->is_under_attack() && game->random_int() & 7 == 0){
+    if (target_building->is_under_attack_new() && game->random_int() & 7 == 0){
       AILogDebug["util_attack_best_target"] << "this building is already under attack (by somebody, might not be us), and rand roll failed, skipping it for now";
       continue;
     }

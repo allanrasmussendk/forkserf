@@ -595,14 +595,19 @@ Player::start_attack() {
   const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
 
   Building *target = game->get_building(building_attacked);
+  // new pillaging logic
+  bool target_is_civilian = false;
   if (!target->is_done() || !target->is_military() ||
       !target->is_active() || target->get_threat_level() != 3) {
-    return;
+    target_is_civilian = true;
+    //return;
   }
 
   PMap map = game->get_map();
+  // iterate over each friendly military building that can SEND knights out
   for (int i = 0; i < attacking_building_count; i++) {
     /* TODO building index may not be valid any more(?). */
+    // b is the current SENDING building, not the target building
     Building *b = game->get_building(attacking_buildings[i]);
     if (b->is_burning() || map->get_owner(b->get_position()) != index) {
       continue;
@@ -610,7 +615,7 @@ Player::start_attack() {
 
     MapPos flag_pos = map->move_down_right(b->get_position());
     if (map->has_serf(flag_pos)) {
-      /* Check if building is under siege. */
+      // Check if THE SENDING building is itself already under siege.  If so it cannot send knights out
       Serf *s = game->get_serf_at_pos(flag_pos);
       if (s->get_owner() != index) continue;
     }
@@ -653,8 +658,17 @@ Player::start_attack() {
 
       Serf *def_serf = b->call_attacker_out(best_index);
 
-      target->set_under_attack();
+      //target->set_under_attack();
+      target->set_under_attack_new();  // the original one uses a bitfield as part of 'progress' integer, this is more clear and reliable
 
+      // NOTE - it seems the original game logic uses the target building's pos as the destination
+      //  for attacking serfs, NOT that building's flag.  Despite this, they end up going to the flag and
+      //  never attempting to move directly into the building.  I am not sure what causes them to know
+      //  to move to the target building's flag.  For now, when attempting to pillage civilian buildings 
+      //  the target pos will be the civilian building's flag and not the building itself?
+      //
+      //  NO - try using the original logic and see if it works, maybe this is solved elsewhere
+      //     (seems like this works, leave it this way for now)
       /* Calculate distance to target. */
       int dist_col = map->dist_x(target->get_position(), def_serf->get_pos());
       int dist_row = map->dist_y(target->get_position(), def_serf->get_pos());
@@ -1065,6 +1079,130 @@ Player::update_stats(int res) {
   //  histogram2 = histogram2 + std::to_string(resource_count_history[res][i]);
   //}
   //Log::Debug["game.cc"] << "inside Player::update_stats, is now " << histogram2;
+}
+
+void
+Player::update_rally_defenders() {
+  //Log::Debug["player.cc"] << "inside Player::update_rally_defenders";
+  PMap map = game->get_map();
+  for (Building *building : game->get_player_buildings(this)) {
+    if (!building->is_under_attack_new()){
+      continue;
+    }
+
+    //
+    // IMPORTANT - how to know when the building is no longer under attack?  the original game logic
+    //   either doesn't or it isn't clear how it works.  
+    //   FOR NOW - unset it immediately as soon as the first rally consideration happens
+    //   eventually, it would be nice to be able to check any time any enemy knight has this building as a target
+    //    and maybe also if that knight is within a certain range of the attacked building
+    //
+    building->unset_under_attack_new();
+
+    //
+    // TODO - add check here to see if the player option to rally defenders is on
+    //
+
+    Log::Debug["player.cc"] << "inside Player::update_rally_defenders, player building with pos " << building->get_position() << " and type " << NameBuilding[building->get_type()] << " is under attack";
+    PMap map = game->get_map();
+
+    int max_knights = 9;  // total guess
+    // this needs to stay "attack"
+    int knights = knights_available_for_attack(building->get_position());
+    // this needs to stay attacking because this is possibly used elsewhere?
+    knights_attacking = std::min(knights, max_knights);
+
+    // this needs to stay attacking because this is possibly used elsewhere?
+    for (int i = 0; i < attacking_building_count; i++) {
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << " of " << attacking_building_count;
+      /* TODO building index may not be valid any more(?). */
+      // NOTE - using attacking_buildings[] array this is NOT a unique copy for rallying
+      Building *rallying_building = game->get_building(attacking_buildings[i]);
+      if (rallying_building->is_burning() || map->get_owner(rallying_building->get_position()) != index) {
+        Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << " is not eligible";
+        continue;
+      }
+
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugA";
+
+      MapPos flag_pos = map->move_down_right(rallying_building->get_position());
+      if (map->has_serf(flag_pos)) {
+        /* Check if rallying building is *itself* under siege and so cannot send knights out. */
+        Serf *serf = game->get_serf_at_pos(flag_pos);
+        if (serf->get_owner() != index) continue;
+      }
+
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugB";
+
+      // minimum levels of knights that can be sent out per sending building type, based on min/med/max player config settings
+      const int *min_level = NULL;
+      const int min_level_hut[] = { 1, 1, 2, 2, 3 };
+      const int min_level_tower[] = { 1, 2, 3, 4, 6 };
+      const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
+      switch (rallying_building->get_type()) {
+        case Building::TypeHut: min_level = min_level_hut; break;
+        case Building::TypeTower: min_level = min_level_tower; break;
+        case Building::TypeFortress: min_level = min_level_fortress; break;
+        default: continue; break;
+      }
+
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugC";
+
+      // even though threat state isn't relevant to rallying target 
+      //  it *IS* relevant to knight staffing levels of rallying buildings
+      size_t state = rallying_building->get_threat_level();
+      int knights_present = rallying_building->get_knight_count();
+      int to_send = knights_present - min_level[knight_occupation[state] & 0xf];
+
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugD";
+      for (int j = 0; j < to_send; j++) {
+        /* Find most appropriate knight to send according to player settings. */
+        int best_type = send_strongest() ? Serf::TypeKnight0:
+                                          Serf::TypeKnight4;
+        int best_index = -1;
+
+        int knight_index = rallying_building->get_holder_or_first_knight();
+        while (knight_index != 0) {
+          Serf *knight = game->get_serf(knight_index);
+          if (send_strongest()) {
+            if (knight->get_type() >= best_type) {
+              best_index = knight_index;
+              best_type = knight->get_type();
+            }
+          } else {
+            if (knight->get_type() <= best_type) {
+              best_index = knight_index;
+              best_type = knight->get_type();
+            }
+          }
+
+          knight_index = knight->get_next();
+        }
+
+        // this needs to stay "attacker"
+        Serf *def_serf = rallying_building->call_attacker_out(best_index);
+
+        // the "target" is the flag of the building the enemy is attacking
+        MapPos rally_point = map->move_down_right(building->get_position());
+
+        /* Calculate distance to target. */
+        int dist_col = map->dist_x(rally_point, def_serf->get_pos());
+        int dist_row = map->dist_y(rally_point, def_serf->get_pos());
+
+        Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "sending an knight out to rally to pos " << rally_point;
+
+        /* Send this serf off to fight. */
+        def_serf->send_off_to_fight(dist_col, dist_row);
+
+        // needs to stay "attacking"
+        knights_attacking -= 1;
+        Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugE";
+        // needs to stay "attacking"
+        if (knights_attacking == 0) return;
+        Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugF";
+      } // foreach knight to send
+    } // foreach rallying building
+  } // foreach player->building
 }
 
 void

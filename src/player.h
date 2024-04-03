@@ -284,6 +284,7 @@ class Player : public GameObject {
 
   // Stats
   void update_knight_morale();
+  void update_rally_defenders();
   int get_land_area() const { return total_land_area; }
   void increase_land_area() { total_land_area++; }
   void decrease_land_area() { total_land_area--; }

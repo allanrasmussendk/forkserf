@@ -310,6 +310,7 @@ class Game {
  protected:
   void clear_serf_request_failure();
   void update_knight_morale();
+  void update_rally_defenders();
   static bool update_inventories_cb(Flag *flag, void *data);
   void update_inventories();
   void update_flags();
