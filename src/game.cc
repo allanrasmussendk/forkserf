@@ -291,6 +291,15 @@ Game::update_knight_morale() {
   mutex_unlock();
 }
 
+void
+Game::update_rally_defenders() {
+  mutex_lock("Game::update_rally_defenders");
+  for (Player *player : players) {
+    player->update_rally_defenders();
+  }
+  mutex_unlock();
+}
+
 typedef struct UpdateInventoriesData {
   Resource::Type resource;
   int *max_prio;
@@ -1248,6 +1257,9 @@ Game::update() {
     }
     player->update();
   }
+
+  // for defense against pillaging/overhauled combat
+  update_rally_defenders();
 
   /* Update knight morale */
   knight_morale_counter -= tick_diff;

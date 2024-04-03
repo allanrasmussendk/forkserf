@@ -419,11 +419,11 @@ Interface::get_custom_map_generator_options() {
 //  - in-game map, if open, must be updated
 void
 Interface::reload_any_minimaps(){
-  Log::Debug["panel.cc"] << "inside Interface::reload_any_minimaps()";
+  //Log::Debug["panel.cc"] << "inside Interface::reload_any_minimaps()";
   
   // game-init box has a map preview that must be updated
   if (is_game_init_open()){  
-    Log::Debug["popup.cc"] << "inside Interface::reload_any_minimaps(), game-init box is open, triggering generate_map_preview()";
+    //Log::Debug["popup.cc"] << "inside Interface::reload_any_minimaps(), game-init box is open, triggering generate_map_preview()";
     get_game_init()->generate_map_preview();
   }
 

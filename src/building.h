@@ -121,6 +121,7 @@ class Building : public GameObject {
   bool burning;
   bool active;
   bool holder;
+  bool under_attack_new; // the original one uses a bitfield as part of 'progress' integer, this is more clear and reliable
   /* Index of flag connected to this building */
   unsigned int flag;
   /* Stock of this building */
@@ -169,8 +170,12 @@ class Building : public GameObject {
   int get_progress() const { return progress; }
   bool build_progress();
   void increase_mining(int res);
-  void set_under_attack() { progress |= BIT(0); }
-  bool is_under_attack() const { return BIT_TEST(progress, 0); }
+  //void set_under_attack() { progress |= BIT(0); }
+  //bool is_under_attack() const { return BIT_TEST(progress, 0); }
+  // the original one uses a bitfield as part of 'progress' integer, this is more clear and reliable
+  void set_under_attack_new() { under_attack_new = true; }
+  void unset_under_attack_new() { under_attack_new = false; }
+  bool is_under_attack_new() { return under_attack_new; }
 
   /* The threat level of the building. Higher values mean that
    the building is closer to the enemy. */
