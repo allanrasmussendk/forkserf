@@ -1683,18 +1683,14 @@ PopupBox::draw_start_attack_box() {
 
   Building *building = interface->get_game()->get_building(
                                     interface->get_player()->building_attacked);
-
-  // this code simply adjusts the height that the attacked building sprite
-  //  is drawn so it looks nice.  With combat overhaul / pillaging any building
-  //  is eligible to attack but for now just pick a middle number for drawing
   int ly = 0;
+
   switch (building->get_type()) {
     case Building::TypeHut: ly = 50; break;
     case Building::TypeTower: ly = 32; break;
     case Building::TypeFortress: ly = 17; break;
     case Building::TypeCastle: ly = 0; break;
-    //default: NOT_REACHED(); break;
-    default: ly = 32; break;  // guess, will figure out a reasonable default later or create a lookup table
+    default: NOT_REACHED(); break;
   }
 
   draw_popup_building(0, ly, map_building_sprite[building->get_type()]);
@@ -5555,12 +5551,12 @@ PopupBox::handle_save_clk(int cx, int cy) {
 bool
 //PopupBox::handle_left_click(int cx, int cy) {
 PopupBox::handle_left_click(int cx, int cy, int modifier) {
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click, cx/cy " << cx << "/" << cy;
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click, cx/cy " << cx << "/" << cy;
   if (being_dragged){
     being_dragged = false;
     return false;
   }
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click A, box type  " << box;
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click A, box type  " << box;
   cx -= 8;
   cy -= 8;
 
@@ -5727,7 +5723,7 @@ PopupBox::handle_left_click(int cx, int cy, int modifier) {
     break;
   }
 
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click Z";
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_left_click Z";
 
   return true;
 }
@@ -5741,7 +5737,7 @@ PopupBox::handle_left_click(int cx, int cy, int modifier) {
 // TO FIX - need to make he mouse pointer follow the drag
 bool
 PopupBox::handle_drag(int lx, int ly) {
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag lx,ly = " << lx << "," << ly << " width " << width << ", height " << height;
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_drag lx,ly = " << lx << "," << ly << " width " << width << ", height " << height;
   if (lx != 0 || ly != 0) {
 
     // to avoid issue where slight movement while clicking a popup button is intepreted as a drag,
@@ -5754,7 +5750,7 @@ PopupBox::handle_drag(int lx, int ly) {
     if (box == Type::TypeOptions || box == Type::TypeGameOptions || box == Type::TypeGameOptions2
       || box == Type::TypeGameOptions3 || box == Type::TypeGameOptions4
       || box == Type::TypeEditMapGenerator || box == PopupBox::TypeEditMapGenerator2 || box == Type::TypeLoadSave){
-      //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, not allowing this type of popup to be lifted/pinned";
+      Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, not allowing this type of popup to be lifted/pinned";
       return true;
     //  THIS SHOULD NOW BE POSSIBLE WITH NEW ZOOM METHOD
     //}else if (gfx.get_zoom_factor() != 1.f){
@@ -5765,7 +5761,7 @@ PopupBox::handle_drag(int lx, int ly) {
     }else{
       if (!lifted){
         lifted = true;
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, setting lifted bool to true";
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, setting lifted bool to true";
         play_sound(Audio::TypeSfxPlanting);  // this is the "pop" sound
         interface->pin_popup();
       }
@@ -5783,7 +5779,7 @@ PopupBox::handle_drag(int lx, int ly) {
     //move_by_pixels(lx, ly);
     x += lx;
     y += ly;
-    //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, current x,y is " << orig_x << "," << orig_y << ", new x,y is " << x << "," << y;
+    Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, current x,y is " << orig_x << "," << orig_y << ", new x,y is " << x << "," << y;
 
     // don't let it popup go off-screen
     Graphics &gfx = Graphics::get_instance();
@@ -5796,13 +5792,13 @@ PopupBox::handle_drag(int lx, int ly) {
     int screen_height; 
     gfx.get_screen_size(&screen_width, &screen_height);
 
-    //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, width/height is " << width << " / " << height;
+    Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, width/height is " << width << " / " << height;
     int this_left = x;
     int this_right = x + width;
     int this_top = y;
     int this_bottom = y + height;
 
-    //Log::Debug["event_loop.cc"] << "inside PopupBox::handle_drag, this popup has left " << this_left << ", right " << this_right << ", top " << this_top << ", bottom " << this_bottom;
+    Log::Debug["event_loop.cc"] << "inside PopupBox::handle_drag, this popup has left " << this_left << ", right " << this_right << ", top " << this_top << ", bottom " << this_bottom;
 
     //  so they cannot be overlapped
     for (GuiObject *interface_float : interface->get_floats()) {
@@ -5812,12 +5808,12 @@ PopupBox::handle_drag(int lx, int ly) {
       if (interface_float == this){
         continue; // ignore self
       }
-      //Log::Debug["event_loop.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype();
+      Log::Debug["event_loop.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype();
       // get the absolute dimensions of the float object (relative to the SDL Window)
       int float_x = 0;
       int float_y = 0;
       interface_float->get_position(&float_x, &float_y);
-      //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << " with coords " << float_x << "," << float_y;
+      Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << " with coords " << float_x << "," << float_y;
       int float_width = 0;
       int float_height = 0;
       interface_float->get_size(&float_width, &float_height);
@@ -5826,46 +5822,46 @@ PopupBox::handle_drag(int lx, int ly) {
       int float_right = float_x + float_width;
       int float_top = float_y;
       int float_bottom = float_y + float_height;
-      //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << " has left " << float_left << ", right " << float_right << ", top " << float_top << ", bottom " << float_bottom;
+      Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << " has left " << float_left << ", right " << float_right << ", top " << float_top << ", bottom " << float_bottom;
 
       // remember that x/y 0,0 is TOP-LEFT not BOTTOM-LEFT as is usual, x-max,y-max is BOTTOM-RIGHT corner
       if (this_left > float_right || float_right < this_left || this_top > float_bottom || this_bottom < float_top){
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup does not intersect";
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup does not intersect";
         // no intersection
       }else{
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup intersects!";
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup intersects!";
       }
 
       int adjust_x = lx;
       int adjust_y = ly;
       if (this_left < float_right && this_right > float_left){
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup has Y-axis intersection";
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup has Y-axis intersection";
         // Y /axis/ overlaps
         if (this_bottom > float_top && this_top < float_top){
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is above the found float, cap its bottom at the float's top";
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is above the found float, cap its bottom at the float's top";
           // this popup is above the found float, cap its bottom at the float's top
           y = float_top - height;
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this_bottom " << this_bottom << " float_top " << float_top;
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this_bottom " << this_bottom << " float_top " << float_top;
           adjust_y = ly - (this_bottom - float_top);
           //adjust_y = this_bottom - float_top;
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", capping requested ly " << ly << " at adjust_y " << adjust_y;
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", capping requested ly " << ly << " at adjust_y " << adjust_y;
         }else if (this_top < float_bottom && this_bottom > float_bottom){
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is below the found float, cap its top at the float's bottom";
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is below the found float, cap its top at the float's bottom";
           // this popup is below the found float, cap its top at the float's bottom
           y = float_bottom;
           adjust_y = ly - (this_top - float_bottom);
         }
       }
       if (this_bottom > float_top && this_top < float_bottom){
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup has X-axis intersection";
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup has X-axis intersection";
         // X /axis/ overlaps
         // if X axis also overlaps
         if (this_right > float_left && this_left < float_left){
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is left of the found float, cap its right at the float's left";
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", this popup is left of the found float, cap its right at the float's left";
           // this popup is left of the found float, cap its right at the float's left
           x = float_left - width;
           adjust_x = lx - (this_right - float_left);
-          //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", capping requested lx " << lx << " at adjust_x " << adjust_x;
+          Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", capping requested lx " << lx << " at adjust_x " << adjust_x;
         }else if (this_left < float_right && this_right > float_right){
           // this popup is right of the found float, cap its left at the float's right
           x = float_right;
@@ -5879,7 +5875,7 @@ PopupBox::handle_drag(int lx, int ly) {
       //if (abs(adjust_x) > 0 && abs(adjust_y) > 0){
       // 
       if (lx != adjust_x && ly != adjust_y){
-        //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", BOTH CHANGED adjust_x = " << adjust_x << ", lx = " << lx << ", adjust_y = " << adjust_y << ", ly = " << ly;
+        Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, found a float with class " << NameGuiObjClass[interface_float->get_objclass()] << " and type " << interface_float->get_objtype() << ", BOTH CHANGED adjust_x = " << adjust_x << ", lx = " << lx << ", adjust_y = " << adjust_y << ", ly = " << ly;
       //if (adjust_x != 0 || adjust_y != 0){
         //x = orig_x;
         //y = orig_y;
@@ -5923,7 +5919,7 @@ PopupBox::handle_drag(int lx, int ly) {
       if (y < 0){ y = 0; }
 
 
-      //Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, new x,y after adjustment is " << x << "," << y;
+      Log::Debug["popup.cc"] << "inside PopupBox::handle_drag, new x,y after adjustment is " << x << "," << y;
       
     }
 
@@ -5935,11 +5931,11 @@ PopupBox::handle_drag(int lx, int ly) {
 
 bool
 PopupBox::handle_mouse_button_down(int lx, int ly, Event::Button button) {
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_mouse_button_down lx,ly = " << lx << "," << ly << ", button " << button << ", setting focused bool to true";
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_mouse_button_down lx,ly = " << lx << "," << ly << ", button " << button << ", setting focused bool to true";
   being_dragged = false;  // need to UNSET this to prevent it from carrying over from prev drag, it will be set by the GuiObject::handle_event handler for TypeDrag
   Graphics &gfx = Graphics::get_instance();
   gfx.get_mouse_cursor_coord(&mouse_x_after_drag, &mouse_y_after_drag);  // store the CURRENT mouse x/y BEFORE dragging so its adjusted position can track the drag
-  //Log::Debug["popup.cc"] << "inside PopupBox::handle_mouse_button_down, mouse_x_y_before_drag is " << mouse_x_after_drag << "," << mouse_y_after_drag;
+  Log::Debug["popup.cc"] << "inside PopupBox::handle_mouse_button_down, mouse_x_y_before_drag is " << mouse_x_after_drag << "," << mouse_y_after_drag;
   set_focused();
   return true;
 }
@@ -5956,7 +5952,7 @@ void PopupBox::hide() {
 
 void
 PopupBox::set_box(Type box_) {
-  //Log::Debug["popup.cc"] << "inside PopupBox::set_type, setting popup with prev box/objtype " << box << " to new objtype " << box_;
+  Log::Debug["popup.cc"] << "inside PopupBox::set_type, setting popup with prev box/objtype " << box << " to new objtype " << box_;
   box = box_;
   //objtype = box_;
   set_objtype(box_);
@@ -5969,11 +5965,11 @@ PopupBox::set_box(Type box_) {
   if (box == PopupBox::TypeOptions || box == PopupBox::TypeGameOptions || box == PopupBox::TypeGameOptions2
   || box == PopupBox::TypeGameOptions3 || box == PopupBox::TypeGameOptions4
   || box == PopupBox::TypeEditMapGenerator || box == PopupBox::TypeEditMapGenerator2 || box == PopupBox::TypeLoadSave){
-    //Log::Debug["interface.cc"] << "inside PopupBox::set_box(), for popup type " << box << ", drawing double-wide";
+    Log::Debug["interface.cc"] << "inside PopupBox::set_box(), for popup type " << box << ", drawing double-wide";
     // double wide, normal height
     set_size(288, 160);
   }else{
-    //Log::Debug["interface.cc"] << "inside PopupBox::set_box(), for popup type " << box << ", drawing single-wide";
+    Log::Debug["interface.cc"] << "inside PopupBox::set_box(), for popup type " << box << ", drawing single-wide";
     // normal size (single-wide)
     set_size(144, 160);
   }

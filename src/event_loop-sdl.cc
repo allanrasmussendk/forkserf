@@ -332,7 +332,7 @@ EventLoopSDL::run() {
               notify_drag(x, y, unscaled_x, unscaled_y, dx, dy, (Event::Button)drag_button);
             }
 
-            //Log::Debug["event_loop-sdl.cc"] << "inside EventLoopSDL::run(), type SDL_MOUSEMOTION, calling SDL_WarpMouseInWindow with drag_x/y values " << drag_x << ", " << drag_y;
+            Log::Debug["event_loop-sdl.cc"] << "inside EventLoopSDL::run(), type SDL_MOUSEMOTION, calling SDL_WarpMouseInWindow with drag_x/y values " << drag_x << ", " << drag_y;
             // this seems to be to keep the mouse cursor from moving while dragging, as the screen is moved instead
             // if this is commented out, both the viewport AND the mouse pointer move together which way accelerates the viewport move
             //  and is unwieldy
@@ -356,7 +356,7 @@ EventLoopSDL::run() {
             // I am seeing an issue where if zooming quickly the zoom is messed up
             //  trying to limit it to a single increment per game update/tick
             if (zoom_changed){
-              //Log::Debug["event_loop-sdl.cc"] << "inside EventLoopSDL::run(), zoom was already changed this SDL loop, not changing again";
+              Log::Debug["event_loop-sdl.cc"] << "inside EventLoopSDL::run(), zoom was already changed this SDL loop, not changing again";
               break;
             }
 
