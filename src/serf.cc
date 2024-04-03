@@ -4127,6 +4127,26 @@ Serf::handle_free_walking_common() {
     return;
   }
 
+  // support for new combat system, pillaging
+  // new pillaging logic - if a knight encounters an enemy flag with attached
+  //  civilian building, burn the building
+  if (state == StateKnightFreeWalking){
+    PMap map = game->get_map();
+    if (map->has_building(map->move_up_left(pos))
+    && map->has_owner(map->move_up_left(pos))
+    && map->get_owner(map->move_up_left(pos)) != get_owner()
+      ){
+      Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, trying to burn it";
+      Building *pillage_building = game->get_building_at_pos(map->move_up_left(pos));
+      if (pillage_building == nullptr){
+        Log::Warn["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, but the Building is nullptr!";
+      }else{
+        Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, BURNING IT!";
+        pillage_building->burnup();
+      }
+    }
+  }
+
   if ((s.free_walking.flags & 7) != 0) {
     /* Obstacle encountered, follow along the edge */
     // which edge?  if BIT_TEST(3) it goes left, if not, goes right
