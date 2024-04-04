@@ -595,8 +595,22 @@ Player::start_attack() {
   const int min_level_tower[] = { 1, 2, 3, 4, 6 };
   const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
 
-  Building *target = game->get_building(building_attacked);
-  // new pillaging logic
+  // new interception logic, part of new pillaging logic / combat overhaul
+  // ANY position is a viable "attack" target because intercepting defenders
+  //  are using the same attack code to intercept actual attackers along their
+  //  expected path.  
+  //  HACK HACK HACK HACK - if the index of "building_attacked" is 0, assume it is
+  //   actually an interception pos and not a real building
+
+  Building *target;
+  if (building_attacked == 0){
+    // assume this is an interception
+  }else{
+    // this is a real building target, though it might be a civilian building!
+    target = game->get_building(building_attacked);
+  }
+  
+  // new pillaging logic allow attacking civilian buildings
   bool target_is_civilian = false;
   if (!target->is_done() || !target->is_military() ||
       !target->is_active() || target->get_threat_level() != 3) {
@@ -660,7 +674,19 @@ Player::start_attack() {
       Serf *def_serf = b->call_attacker_out(best_index);
 
       //target->set_under_attack();
-      target->set_under_attack_new();  // the original one uses a bitfield as part of 'progress' integer, this is more clear and reliable
+      //target->set_under_attack_new();  // the original one uses a bitfield as part of 'progress' integer, this is more clear and reliable
+      MapPos target_pos = bad_map_pos;
+      if (building_attacked > 0){
+        target->set_under_attack_new();
+        target_pos = target->get_position();
+      }else{
+        // this seems to be an interception, not an attack
+        //
+        //  STATUS - this function needs to be changed to pass a target_pos rather than
+        //    a building index so that it can easily support interceptions
+        //
+        target_pos = ????;
+      }
 
       // NOTE - it seems the original game logic uses the target building's pos as the destination
       //  for attacking serfs, NOT that building's flag.  Despite this, they end up going to the flag and
@@ -675,7 +701,8 @@ Player::start_attack() {
       int dist_row = map->dist_y(target->get_position(), def_serf->get_pos());
 
       /* Send this serf off to fight. */
-      def_serf->send_off_to_fight(dist_col, dist_row, target->get_position());
+      //def_serf->send_off_to_fight(dist_col, dist_row, target->get_position());
+      def_serf->send_off_to_fight(dist_col, dist_row, target_pos);
 
       knights_attacking -= 1;
       if (knights_attacking == 0) return;
@@ -1202,6 +1229,7 @@ Player::update_rally_defenders() {
       
       // starting with the actual target pos, work backwards towards the attacker until the earliest likely intercept pos found
       Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", plotting intercept pos for threatening knight at pos " << serf->get_pos();
+      MapPos best_intercept_pos = bad_map_pos;
       MapPos intercept_pos = predicted_path.get_end(map.get());
       std::list<Direction>::reverse_iterator rit;
       std::list<Direction> predicted_dirs = predicted_path.get_dirs();
@@ -1240,6 +1268,15 @@ Player::update_rally_defenders() {
         // NOTE: the attacking_buildings[] array is populated by Player::available_knights_at_pos which is called 
         //  by Player::knights_available_for_attack.  It contains a list of building indexes where at least 
         //  one friendly knight can be sent out immediately
+        //
+        // can optimize this by checking best pos first, then safest pos (target pos), 
+        //  then keep checking halfway between until a solution is found within a reasonable dist
+        //  (3-4 tiles?)
+        //  for now just use the safest pos / target_pos and if a solution is found 
+        //   walk backwards until intercept is no longer possible and then use previous position's
+        //   solution
+        //  
+
         for (int attacking_building_index : attacking_buildings){
           Building *attacking_building = game->get_building(attacking_building_index);
           if (attacking_building == nullptr){ continue; }
@@ -1248,31 +1285,56 @@ Player::update_rally_defenders() {
           // ???
           // try using the flag position of the building as it is failing to pathfind?
           Road intercept_path = pathfinder_freewalking_serf(map.get(), map->move_down_right(attacking_building->get_position()), intercept_pos, 100);
+          bool this_solution_acceptable = false;
           if (intercept_path.get_length() < 1){
             Log::Warn["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", could not pathfind an intercept_path from friendly military building with type " << NameBuilding[attacking_building->get_type()] << " at pos " << attacking_building->get_position() << " to intercept_pos " << intercept_pos << ".  skipping this friendly building for now";
-            continue;
           }
           Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " has tile_dist " << intercept_path.get_length() << " to intercept_pos " << intercept_pos;
           if (intercept_path.get_length() <= (predicted_path.get_length() * 1.5 + 5)){  // guessing on the math
-            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " intercept tile_dist " << intercept_path.get_length() << " to intercept_pos " << intercept_pos << " is within threshold, using solution";
-            // TEMPORARY AND BUG PRONE
-            Building *building_attacked_building = game->get_building_at_pos(target_pos);
-            if (building_attacked_building == nullptr){
-              Log::Error["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", target_building at target_pos " << target_pos << " is nullptr!  crashing";
-              throw ExceptionFreeserf("inside Player::update_rally_defenders, target_building at target_pos is nullptr!");
+            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " intercept tile_dist " << intercept_path.get_length() << " to intercept_pos " << intercept_pos << " is within threshold and is new best_intercept_pos";
+            // new best solution
+            best_intercept_pos = intercept_pos;
+            this_solution_acceptable = true;
+          }else{
+            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " intercept tile_dist " << intercept_path.get_length() << " to intercept_pos " << intercept_pos << " is not within threshold, rejecting it";
+          }
+          if (!this_solution_acceptable){
+            if (best_intercept_pos != bad_map_pos){
+              // failed to solution, use prior best_intercept_pos solution
+              // NOTE - it might be worth trying a few more times in case this pos/path is temporarily blocked?
+              Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " could not plot acceptable solution to intercept_pos " << intercept_pos << " but an existing solution was found, stopping search and using best_intercept_pos " << best_intercept_pos;
+            }else{
+              // no acceptable solution found!
+              //  because the search is started from the safest possible position it isn't likely
+              //  that any interception solution is viable!  quit the search
+              Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " could not plot ANY acceptable solution for threatening_knight at pos " << pos << ", this attacker likely cannot be intercepted!";
             }
-            // this is the index of the building
-            building_attacked = building_attacked_building->get_index();
-            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", calling start_attack against building at target_pos " << target_pos << " with type " << NameBuilding[building_attacked_building->get_type()];
-            start_attack();
+            // in either case, search ends once an an unacceptable intercept_pos is reached
             break;
           }
+          // even though an acceptable solution was found, keep checking for better intercept positions
           intercept_pos = map->move(intercept_pos, reverse_direction(predicted_dir));
-        }
+        } // for each intercepting ("attacking") building
         Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", plotting intercept pos for threatening knight at pos " << serf->get_pos() << ", done considering attacking_buildings to intercept_pos " << intercept_pos;
-      }
+      } // reverse-iterate over Dirs in enemy knight's predicted_path
 
-    }
+      if (best_intercept_pos == bad_map_pos){
+        Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", plotting intercept pos for threatening knight at pos " << serf->get_pos() << ", failed to plot acceptable intercept solution for intercepting \"attacking\" building with index " << attacking_building_index << " at pos " << attacking_building->get_position() << " and type " << NameBuilding[attacking_building->get_type()];
+        continue;
+      }
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", plotting intercept pos for threatening knight at pos " << serf->get_pos() << ", the best acceptable intercept solution for intercepting \"attacking\" building with index " << attacking_building_index << " at pos " << attacking_building->get_position() << " and type " << NameBuilding[attacking_building->get_type()] << " is best_intercept_pos " << best_intercept_pos;
+      // TEMPORARY AND BUG PRONE
+      Building *building_attacked_building = game->get_building_at_pos(target_pos);
+      if (building_attacked_building == nullptr){
+        Log::Error["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", target_building at target_pos " << target_pos << " is nullptr!  crashing";
+        throw ExceptionFreeserf("inside Player::update_rally_defenders, target_building at target_pos is nullptr!");
+      }
+      // this is the index of the building
+      building_attacked = building_attacked_building->get_index();
+      Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", calling start_attack against building at target_pos " << target_pos << " with type " << NameBuilding[building_attacked_building->get_type()];
+      start_attack();
+      
+    } // while spiral_dist check around our borders to find enemy knights that may require interception
 
     Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", " << threatening_knights.size() << " threatening_knights found in/near our borders";
 
