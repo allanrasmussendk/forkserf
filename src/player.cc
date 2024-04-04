@@ -434,6 +434,7 @@ Player::available_knights_at_pos(MapPos pos, int index_, int dist) {
   const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
 
   PMap map = game->get_map();
+  // exclude mappos that do not contain eligible friendly buildings
   if (map->get_owner(pos) != index ||
       map->type_up(pos) <= Map::TerrainWater3 ||
       map->type_down(pos) <= Map::TerrainWater3 ||
@@ -674,7 +675,7 @@ Player::start_attack() {
       int dist_row = map->dist_y(target->get_position(), def_serf->get_pos());
 
       /* Send this serf off to fight. */
-      def_serf->send_off_to_fight(dist_col, dist_row);
+      def_serf->send_off_to_fight(dist_col, dist_row, target->get_position());
 
       knights_attacking -= 1;
       if (knights_attacking == 0) return;
@@ -1081,6 +1082,158 @@ Player::update_stats(int res) {
   //Log::Debug["game.cc"] << "inside Player::update_stats, is now " << histogram2;
 }
 
+
+//
+// detect any enemy knights near or within our territory
+//  and pathfind their expected route to their known
+//  target pos.  If it passes through friendly territory
+//  attempt to intercept, even if their target is some other player
+//  it is possible they could pillage our buildings along the way
+//
+// this is likely to be a slow function and seems like a good candidate
+//  to run asynchronously in another thread?  even if not AI
+//
+// this whole concept is blurring the line between base game and AI
+//  It might be worth adding the AI variables to Player so that
+//  these functions can use them
+//
+void
+Player::update_rally_defenders() {
+  Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index;
+  PMap map = game->get_map();
+  std::vector<Serf *> threatening_knights = {};
+  
+  // iterate over all our military buildings to use as centers
+  //  for checking our entire territory - which is defined by
+  //  military buildings
+  for (Building *building : game->get_player_buildings(this)) {
+    // only active military buildings claim territory
+    if (!building->is_done()){ continue; }
+    if (!building->is_military()){ continue; }
+    if (!building->is_active()){ continue; }
+    if (building->is_burning()){ continue; }
+
+    Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", found a friendly military building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position();
+
+    MapPos center_pos = building->get_position();
+
+    // search the area around the building for enemy knights
+    //  who are in KnightFreeWalkingState, and not just walking along roads
+    //  inside their own territory
+    int distance = 12;  // what is reasonable, anyway? guessing
+    const int _spiral_dist[49] = { 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397,
+    469, 547, 631, 721, 817, 919, 1027, 1141, 1261, 1387, 1519, 1657, 1801, 1951,
+    2107, 2269, 2437, 2611, 2791, 2977, 3169, 3367, 3571, 3781, 3997, 4219, 4447,
+    4681, 4921, 5167, 5419, 5677, 5941, 6211, 6487, 6769 };
+    for (int i = 0; i < _spiral_dist[distance]; i++) {
+      MapPos pos = map->pos_add_extended_spirally(center_pos, i);
+      if (!map->has_serf(pos)){ continue; }
+      Serf *serf = game->get_serf_at_pos(pos);
+      if (serf == nullptr){
+        Log::Warn["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", got nullptr for Serf at pos " << pos << "! skipping him";
+        continue;
+      }
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", around friendly military building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position()  << ", found a serf at pos " << serf->get_pos() << " of type " << NameSerf[serf->get_type()];
+      if (serf->get_owner() == index){
+        // this is our serf
+        continue;
+      }
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", around friendly military building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position()  << ", found an enemy serf at pos " << serf->get_pos() << " of type " << NameSerf[serf->get_type()];
+      if (serf->get_type() < Serf::TypeKnight0 || serf->get_type() > Serf::TypeKnight4){
+        // enemy serf is not a knight
+        continue;
+      }
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", around friendly military building of type " << NameBuilding[building->get_type()] << " at pos " << building->get_position()  << ", found an enemy knight at pos " << serf->get_pos() << " of type " << NameSerf[serf->get_type()];
+      if (serf->get_state() < Serf::StateKnightFreeWalking && serf->get_state() < Serf::StateKnightAttackingFreeWait){
+        // enemy knight is not on way to a destination.  He is either defending or already at his destination, or something else
+        // I think these are the right states for free walking knights, including ones who are fighting along the way
+        //  and excluding ones who are attacking or defending military buildings
+        continue;
+      }
+      
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", an enemy knight with type " << NameSerf[serf->get_type()] << " in freewalking state was found at pos " << pos;
+
+      // see where they are headed
+      MapPos target_pos = serf->get_attack_target_pos();
+      if (target_pos == bad_map_pos){
+        Log::Warn["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", enemy knight with type " << NameSerf[serf->get_type()] << " at pos " << serf->get_pos() << " has bad_map_pos for attack_target_pos!  this is unexpected, skipping him";
+        // crash here?  yes, for now
+        throw ExceptionFreeserf("inside Player::update_rally_defenders for player, enemy knight has bad_map_pos for attack_target_pos when a real mappos expected");
+        //continue;
+      }
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", enemy knight with type " << NameSerf[serf->get_type()] << " at pos " << serf->get_pos() << " has target_pos " << target_pos;
+      Road predicted_path = pathfinder_freewalking_serf(map.get(), serf->get_pos(), target_pos, 100);
+      if (predicted_path.get_length() < 1){
+        Log::Warn["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", could not pathfind a predicted route from enemy knight with type " << NameSerf[serf->get_type()] << " at pos " << serf->get_pos() << " to target_pos " << target_pos << ".  skipping him for now";
+        continue;
+      }
+
+      //
+      // see if the predicted path actually passes through our borders
+      //
+      // trace the "road" until it ends
+      MapPos predicted_pos = predicted_path.get_source();
+      for (Direction predicted_dir : predicted_path.get_dirs()){
+        if (map->get_owner(predicted_pos) == index){
+          Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", an freewalking enemy knight was found at pos " << serf->get_pos() << " whose predicted path passes through our borders at pos " << predicted_pos << ", adding to threatening_knights list";
+          threatening_knights.push_back(serf);
+          break;
+        }
+        //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", following predicted path in dir " << NameDirection[predicted_dir];
+        predicted_pos = map->move(predicted_pos, predicted_dir);
+        //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", after following predicted path in dir " << NameDirection[predicted_dir] << ", new pos is " << predicted_pos;
+      }
+      //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", end of the predicted path \"road\" reached at pos " << pos << ", done checking this enemy knight";
+    }
+
+    Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", " << threatening_knights.size() << " threatening_knights found in/near our borders";
+
+    //
+    //
+    //for (Serf *threatening_knight : threatening_knights){
+    //    // stuff
+    //}
+  }
+
+/*
+  // DO THIS STUFF LATER
+  if (false){
+
+    //
+    // make sure garrison has enough free knights available to send out
+    //
+    // NOTE - this logic is copied from Player::available_knights_at_pos
+    //  but additionally allows castle to send defenders out...
+    // ... which might be dangerous in terms of depleting defenders, think about that more
+    const int *min_level = NULL;
+    const int min_level_hut[] = { 1, 1, 2, 2, 3 };
+    const int min_level_tower[] = { 1, 2, 3, 4, 6 };
+    const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
+    switch (building->get_type()) {
+      case Building::TypeHut: min_level = min_level_hut; break;
+      case Building::TypeTower: min_level = min_level_tower; break;
+      case Building::TypeFortress: min_level = min_level_fortress; break;
+      case Building::TypeCastle: min_level = min_level_fortress; break; // use fortress level for now
+      default: NOT_REACHED(); break;
+    }
+    size_t state = building->get_threat_level();
+    int knights_present = building->get_knight_count();
+    int to_send = knights_present - min_level[knight_occupation[state] & 0xf];
+    if (to_send < 1){
+      continue;
+    }
+
+    // make sure building is not blocked / "under siege" by an attacker at its flag
+    MapPos flag_pos = map->move_down_right(building->get_position());
+    if (map->has_serf(flag_pos)) {
+      Serf *serf = game->get_serf_at_pos(flag_pos);
+      if (serf->get_owner() != index) continue;
+    }
+  }
+  */
+}
+
+/*
 void
 Player::update_rally_defenders() {
   //Log::Debug["player.cc"] << "inside Player::update_rally_defenders";
@@ -1115,7 +1268,7 @@ Player::update_rally_defenders() {
     // this needs to stay attacking because this is possibly used elsewhere?
     for (int i = 0; i < attacking_building_count; i++) {
       Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << " of " << attacking_building_count;
-      /* TODO building index may not be valid any more(?). */
+      // TODO building index may not be valid any more(?). 
       // NOTE - using attacking_buildings[] array this is NOT a unique copy for rallying
       Building *rallying_building = game->get_building(attacking_buildings[i]);
       if (rallying_building->is_burning() || map->get_owner(rallying_building->get_position()) != index) {
@@ -1127,7 +1280,7 @@ Player::update_rally_defenders() {
 
       MapPos flag_pos = map->move_down_right(rallying_building->get_position());
       if (map->has_serf(flag_pos)) {
-        /* Check if rallying building is *itself* under siege and so cannot send knights out. */
+        // Check if rallying building is *itself* under siege and so cannot send knights out. 
         Serf *serf = game->get_serf_at_pos(flag_pos);
         if (serf->get_owner() != index) continue;
       }
@@ -1156,7 +1309,7 @@ Player::update_rally_defenders() {
 
       Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "debugD";
       for (int j = 0; j < to_send; j++) {
-        /* Find most appropriate knight to send according to player settings. */
+        // Find most appropriate knight to send according to player settings.
         int best_type = send_strongest() ? Serf::TypeKnight0:
                                           Serf::TypeKnight4;
         int best_index = -1;
@@ -1182,16 +1335,54 @@ Player::update_rally_defenders() {
         // this needs to stay "attacker"
         Serf *def_serf = rallying_building->call_attacker_out(best_index);
 
-        // the "target" is the flag of the building the enemy is attacking
-        MapPos rally_point = map->move_down_right(building->get_position());
+        //
+        // new interception logic
+        //
+        MapPos attacked_building_flag_pos = map->move_down_right(building->get_position());
+        MapPos attacker_pos = 
+        Road attacker_route = pathfinder_freewalking_serf(map, start_pos, attacked_building_flag_pos, 100);
+        //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, this pathfinder_freewalking_serf call took " << (std::clock() - pathfinder_free_start) / static_cast<double>(CLOCKS_PER_SEC);;
 
-        /* Calculate distance to target. */
+        if (freewalking_route.get_length() > 0){
+          //game->set_debug_mark_road(freewalking_route);
+          //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, attacking building pos " << pos << ", start_pos " << start_pos << ", attacked_building_flag_pos " << attacked_building_flag_pos << ", found freewalking solution to attacked_building_flag_pos, length " << freewalking_route.get_length();
+
+          //
+          // check convolution ratio, if the road is too convoluted it is decreasingly likely that
+          //  freewalking knights will be able to navigate it consistently or at all
+          //
+          //int ideal_length = AI::get_straightline_tile_dist(map, start_pos, target_pos);
+          // function copied from AI::get_straightline_tile_dist, MAKE THIS A GAME FUNCTION INSTEAD OF AI-SPECIFIC!
+          int dist_col = map->dist_x(start_pos, attacked_building_flag_pos);
+          int dist_row = map->dist_y(start_pos, attacked_building_flag_pos);
+          int ideal_length = 0;
+          if ((dist_col > 0 && dist_row > 0) || (dist_col < 0 && dist_row < 0)) {
+            ideal_length = std::max(abs(dist_col), abs(dist_row));
+          }else {
+            ideal_length = abs(dist_col) + abs(dist_row);
+          }
+          // NOTE - to log this properly, AI and main game thread logs must be separated
+          //  as AI calls this also to perform attacks!
+          //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, attacking building pos " << pos << ", has straight-line tile distance " << ideal_length << " from attacked_building_flag_pos " << attacked_building_flag_pos;
+          //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, attacking building pos " << pos << ", route from start_pos " << start_pos << " to attacked_building_flag_pos_pos " << attacked_building_flag_pos << " has length " << freewalking_route.get_length();
+          double convolution = static_cast<double>(freewalking_route.get_length()) / static_cast<double>(ideal_length);
+          //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, attacking building pos " << pos << ", route length: " << freewalking_route.get_length() << ", ideal length: " << ideal_length << ", convolution ratio: " << convolution;
+          if (convolution >= 3.00) {
+            //Log::Info["player.cc"] << "inside Player::available_knights_at_pos, this route solution is too convoluted, rejecting";
+            return index_;
+          }
+        }else{
+          //Log::Debug["player.cc"] << "inside Player::available_knights_at_pos, attacking building pos " << pos << ", attacked_building_flag_pos " << attacked_building_flag_pos << ", cannot reach attacked_building_flag_pos within specified limits";
+          return index_;
+        }
+
+        // Calculate distance to target.
         int dist_col = map->dist_x(rally_point, def_serf->get_pos());
         int dist_row = map->dist_y(rally_point, def_serf->get_pos());
 
         Log::Debug["player.cc"] << "inside Player::update_rally_defenders, rallying building count #" << i << "sending an knight out to rally to pos " << rally_point;
 
-        /* Send this serf off to fight. */
+        // Send this serf off to fight.
         def_serf->send_off_to_fight(dist_col, dist_row);
 
         // needs to stay "attacking"
@@ -1204,6 +1395,7 @@ Player::update_rally_defenders() {
     } // foreach rallying building
   } // foreach player->building
 }
+*/
 
 void
 Player::update_knight_morale() {

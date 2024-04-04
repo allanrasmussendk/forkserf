@@ -325,6 +325,7 @@ Serf::Serf(Game *game, unsigned int index) : GameObject(game, index) {
   pos = -1;
   tick = 0;
   s = { { 0 } };
+  attack_target_pos = bad_map_pos;  // REMEMBER this is never reset, only overwritten, and does not persist savegame!
 }
 
 /* Change type of serf and update all global tables
@@ -909,7 +910,8 @@ Serf::go_out_from_inventory(unsigned int inventory, MapPos dest, int mode) {
 }
 
 void
-Serf::send_off_to_fight(int dist_col, int dist_row) {
+//Serf::send_off_to_fight(int dist_col, int dist_row) {
+Serf::send_off_to_fight(int dist_col, int dist_row, MapPos target_pos) {
   /* Send this serf off to fight. */
   set_state(StateKnightLeaveForWalkToFight);
   s.leave_for_walk_to_fight.dist_col = dist_col;
@@ -917,6 +919,12 @@ Serf::send_off_to_fight(int dist_col, int dist_row) {
   s.leave_for_walk_to_fight.field_D = 0;
   s.leave_for_walk_to_fight.field_E = 0;
   s.leave_for_walk_to_fight.next_state = StateKnightFreeWalking;
+  
+  // HACK to more easily support new combat logic / pillaging
+  //
+  // WARNING THIS WILL NOT PERSIST SAVEGAMES!!!!
+  // 
+  attack_target_pos = target_pos;
 }
 
 void

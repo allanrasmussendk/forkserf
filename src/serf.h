@@ -184,10 +184,14 @@ class Serf : public GameObject {
   unsigned int recent_dest = 0;  // store the most recent destination for each serf, in case they become Lost, try to send another serf.  Flag index
   unsigned int building_held = 0;  // the index of a building that this serf is Holder to, for sanity/corruption checks
   //
-  // TODO - add a variable that stores the index of the building this Serf is holder to, if he has oen
+  // TODO - add a variable that stores the index of the building this Serf is holder to, if he has one
   //   this variable then can be used to cross-check for missing serfs.  Currently it is very difficult to
   //   identify that a serf is missing if the game thinks he is still there
   //
+
+  // HACK to avoid having to deal with the s union
+  // ultimately, get rid of the union entirely as it is cumbersome and memory is plentiful these days
+  MapPos attack_target_pos;
 
   union s {
     struct {
@@ -483,6 +487,9 @@ class Serf : public GameObject {
   unsigned int get_idle_in_stock_inv_index() const { return s.idle_in_stock.inv_index; }
   unsigned int get_ready_to_leave_inv_index() const { return s.ready_to_leave_inventory.inv_index; }
   int get_mining_substate() const { return s.mining.substate; }
+
+  // remember this is never cleared, only overwritten, and does not persist savegames!!!
+  MapPos get_attack_target_pos() const { return attack_target_pos; }
   /* removing AdvancedDemolition for now, see https://github.com/forkserf/forkserf/issues/180
   //int get_digging_substate() { return s.digging.substate; } // re-using the Digging substate for option_AdvancedDemolitio to keep count of how many digs so far in this pos
   */
@@ -502,7 +509,8 @@ class Serf : public GameObject {
   // Commands
   // the go_out_from_inventory declaration says arg2 is a MapPos, but src->get_index() returns a Flag index not a Map Pos, wtf??
   void go_out_from_inventory(unsigned int inventory, MapPos dest, int mode);
-  void send_off_to_fight(int dist_col, int dist_row);
+  //void send_off_to_fight(int dist_col, int dist_row);
+  void send_off_to_fight(int dist_col, int dist_row, MapPos target_pos);  // REMEMBER THIS WILL NOT SURVIVE SAVEGAME!
   void stay_idle_in_stock(unsigned int inventory);
   void go_out_from_building(MapPos dest, int dir, int field_B);
 
