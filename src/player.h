@@ -165,7 +165,8 @@ class Player : public GameObject {
 
  public:
   // TODO(Digger): remove it to UI
-  int building_attacked;
+  int building_attacked;  // remove this entirely and replace with target_pos?
+  MapPos target_pos;  // to support interception and new combat logic w/ pillaging
   int knights_attacking;
   int attacking_building_count;
   int attacked_building_flag_pos; // tlongstretch - adding attacked building pos to sanity check pathfinding to it
