@@ -630,6 +630,11 @@ AI::do_connect_disconnected_flags() {
     if (flag->is_connected())
       continue;
     if (flag->has_building()) {
+      // got a crash here apr06 2024, likely because the building no longer existed
+      if (flag->get_building() == nullptr){
+        AILogDebug["do_connect_disconnected_flags"] << "flag at pos " << flag->get_position() << " had an attached building but now it seems to be a nullptr, continuing";
+        continue;
+      }
       AILogDebug["do_connect_disconnected_flags"] << "flag at pos " << flag->get_position() << " has an attached building of type " << NameBuilding[flag->get_building()->get_type()];
       if ((flag->get_building()->get_type() == Building::TypeCoalMine
         || flag->get_building()->get_type() == Building::TypeIronMine

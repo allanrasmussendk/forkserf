@@ -3787,14 +3787,20 @@ Serf::handle_serf_free_walking_state_dest_reached() {
           && map->has_owner(building_pos)
           && map->get_owner(building_pos) != get_owner()
             ){
-          Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, trying to burn it";
-          Building *pillage_building = game->get_building_at_pos(building_pos);
-          if (pillage_building == nullptr){
-            Log::Warn["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, but the Building is nullptr!";
-          }else{
-            Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached his destination which is an enemy building, BURNING IT!";
-            game->demolish_building(building_pos, game->get_player(pillage_building->get_owner()));
-          }
+            Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy building, considering burning it";
+            Building *pillage_building = game->get_building_at_pos(map->move_up_left(pos));
+            if (pillage_building == nullptr){
+              Log::Warn["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy building, but the Building is nullptr!";
+            }else{
+              Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy building of type " << NameBuilding[pillage_building->get_type()] << " at pos " << pillage_building->get_position() << ", considering burning it";
+              if (pillage_building->is_military()){
+                Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy military building, NEED TO ADD EXTRA LOGIC TO OCCUPY IT EMPY AND INACTIVE UNDEFENDED";
+              }else{
+                Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy civilian building, BURNING IT!";
+                pillage_building->burnup();
+              }
+            }
+          
           //
           // how to make the knight return to his original building after pillaging?
           //  in the normal game, if a knight cannot occupy the captured building because it is full, what happens? 
@@ -4138,19 +4144,28 @@ Serf::handle_free_walking_common() {
   // support for new combat system, pillaging
   // new pillaging logic - if a knight encounters an enemy flag with attached
   //  civilian building, burn the building
+  // NEED TO ADD LOGIC TO OCCUPY THE BUILDING IF IT IS AN UNOCCUPIED ENEMY MILITARY BUILDING!
+  //  but, need to avoid "stealing" it in the case it is an occupied enemy military building
+  //  and the occupant comes out to defend.  Add extra logic to handle that.
+  // for not, simply do not burn military buildings
   if (state == StateKnightFreeWalking){
     PMap map = game->get_map();
     if (map->has_building(map->move_up_left(pos))
     && map->has_owner(map->move_up_left(pos))
     && map->get_owner(map->move_up_left(pos)) != get_owner()
       ){
-      Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, trying to burn it";
+      Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, considering burning it";
       Building *pillage_building = game->get_building_at_pos(map->move_up_left(pos));
       if (pillage_building == nullptr){
         Log::Warn["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, but the Building is nullptr!";
       }else{
-        Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building, BURNING IT!";
-        pillage_building->burnup();
+        Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building of type " << NameBuilding[pillage_building->get_type()] << " at pos " << pillage_building->get_position() << ", considering burning it";
+        if (pillage_building->is_military()){
+          Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy military building, NEED TO ADD EXTRA LOGIC TO OCCUPY IT EMPY AND INACTIVE UNDEFENDED";
+        }else{
+          Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy civilian building, BURNING IT!";
+          pillage_building->burnup();
+        }
       }
     }
   }

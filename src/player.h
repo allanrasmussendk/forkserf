@@ -170,6 +170,7 @@ class Player : public GameObject {
   int knights_attacking;
   int attacking_building_count;
   int attacked_building_flag_pos; // tlongstretch - adding attacked building pos to sanity check pathfinding to it
+  int last_interception_tick;  // limit how often interceptors are sent to avoid sending all knights to first target
   int attacking_knights[4];
   int total_attacking_knights;
   //unsigned int popup_target_obj_index;  // this seems to store the index of the building/flag that the player recently clicked on, for popup purposes

@@ -1259,7 +1259,9 @@ Game::update() {
   }
 
   // for defense against pillaging/overhauled combat
+  Log::Debug["player.cc"] << "inside Game::update, debug1";
   update_rally_defenders();
+  Log::Debug["player.cc"] << "inside Game::update, debug2";
 
   /* Update knight morale */
   knight_morale_counter -= tick_diff;
@@ -2372,6 +2374,7 @@ Game::can_demolish_flag(MapPos pos, const Player *player) const {
 
 bool
 Game::demolish_flag_(MapPos pos) {
+  Log::Debug["game.cc"] << "inside Game::demolish_flag_ with pos " << pos;
 
   /* Handle any serf at pos. */
   if (map->has_serf(pos)) {
@@ -3078,6 +3081,12 @@ Game::cancel_transported_resource(Resource::Type res, unsigned int dest) {
   }
 
   Flag *flag = flags[dest];
+  // got exception here apr06 2024, probably because nullptr check isn't being done
+  //  and maybe flag is being removed by a non-threadsafe call?
+  if (flag == nullptr){
+    Log::Warn["game.cc"] << "inside cancel_transported_resource, flag is nullptr which suggests a non-threadsafe flag removal was done!  returning without cancelling request";
+    return;
+  }
 
   if (!flag->has_building()) {
     // got exception here for the first time ever jan01 2022, wonder why
