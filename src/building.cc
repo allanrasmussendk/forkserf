@@ -295,6 +295,11 @@ Building::call_defender_out() {
   Serf *first_serf = game->get_serf(holder_or_first_knight);
   Serf *def_serf = first_serf->extract_last_knight_from_list();
 
+  // because the last knight in the list should always be sent out?  (is the list re-ordered according to strongest/weakest??)
+  //  if the last serf / "def_serf" is the holder, it means he is the last knight in the building and so
+  //  the building would no longer have a holder.
+  // This should be very common when the last defender is fighting an attacker at his building flag.  If the defender wins
+  //  he goes right back inside, and I assume he becomes the holder again?
   if (def_serf->get_index() == holder_or_first_knight) {
     holder_or_first_knight = 0;
   }
@@ -310,8 +315,15 @@ Building::call_attacker_out(int) {
   Serf *first_serf = game->get_serf(holder_or_first_knight);
   Serf *def_serf = first_serf->extract_last_knight_from_list();
 
+  // because the last knight in the list should always be sent out?  (is the list re-ordered according to strongest/weakest??)
+  //  if the last serf / "def_serf" is the holder, it means he is the last knight in the building and so
+  //  the building would no longer have a holder.
+  // BUT IN WHAT CASE WOULD AN *attacker* EXIT HIS BUILDING????
+  // adding a check to find out
   if (def_serf->get_index() == holder_or_first_knight) {
     holder_or_first_knight = 0;
+    Log::Error["building.cc"] << "inside Building::call_attacker_out, the last knight is being sent out, meaning there is no longer a holder, but I thought that wasn't possible?  Crashing to understand if this ever happens normally";
+    throw ExceptionFreeserf("inside Building::call_attacker_out, the last knight is being sent out, meaning there is no longer a holder, but I thought that wasn't possible?  Crashing to understand if this ever happens normally");
   }
 
   return def_serf;

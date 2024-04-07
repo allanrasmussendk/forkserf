@@ -705,7 +705,7 @@ Player::start_attack() {
           throw ExceptionFreeserf("nside Player::start_attack, is_interception is true, but target_pos is bad_map_pos!  crashing");
         }
         // limit one knight being sent to intercept, for now
-        Log::Error["player.cc"] << "inside Player::start_attack, is_interception is true, only sending one knight out.  returning";
+        Log::Debug["player.cc"] << "inside Player::start_attack, is_interception is true, only sending one knight out.  returning early";
         return;
       }else{
         // normal behavior
