@@ -281,6 +281,7 @@ Building::set_holder_or_first_knight(unsigned int serf_index) {
   }
 }
 
+// this function is only called by Serf::handle_serf_knight_engaging_building_state
 Serf*
 Building::call_defender_out() {
   /* Remove knight from stats of defending building */
@@ -307,6 +308,7 @@ Building::call_defender_out() {
   return def_serf;
 }
 
+// this function is only called by Player::start_attack
 Serf*
 Building::call_attacker_out(int) {
   stock[0].available -= 1;

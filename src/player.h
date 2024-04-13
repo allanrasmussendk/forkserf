@@ -100,7 +100,16 @@ class Player : public GameObject {
   int completed_building_count[24];
   int incomplete_building_count[24];
   int inventory_prio[26];
-  int attacking_buildings[64];
+  // this array is re-used every time Player::knights_available_for_attack is called.  
+  // knights_available_for_attack searches for nearby friendly buildings and if it
+  //  finds one that can send knights it adds the index of the building to the attacking_buildings[]
+  //  array, starting at 0, allowing up to 64 total attacking buildings.
+  // Because the array is not cleared each run, the previous runs' results remain in the array and
+  //  the game uses the integer Player::attacking_building_count as the index of the last element
+  //  of the attacking_buildings[] array that contains a relevant value,  It cannot be assumed that
+  //  all building indexes in attacking_buildings[] are relevant, only the ones up to the last item
+  //  as defined by attacking_buildings_count;
+  int attacking_buildings[64];  
 
   Messages messages;
   PosTimers timers;
@@ -168,7 +177,7 @@ class Player : public GameObject {
   int building_attacked;  // remove this entirely and replace with target_pos?
   MapPos target_pos;  // to support interception and new combat logic w/ pillaging
   int knights_attacking;
-  int attacking_building_count;
+  int attacking_building_count;  // this is the index of the last item in attacking_buildings[64] to be considered for this attack, as the array is NOT CLEARED each run
   int attacked_building_flag_pos; // tlongstretch - adding attacked building pos to sanity check pathfinding to it
   int last_interception_tick;  // limit how often interceptors are sent to avoid sending all knights to first target
   int attacking_knights[4];

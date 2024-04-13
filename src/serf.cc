@@ -3795,6 +3795,7 @@ Serf::handle_serf_free_walking_state_dest_reached() {
               Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy building of type " << NameBuilding[pillage_building->get_type()] << " at pos " << pillage_building->get_position() << ", considering burning it";
               if (pillage_building->is_military()){
                 Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy military building, NEED TO ADD EXTRA LOGIC TO OCCUPY IT EMPY AND INACTIVE UNDEFENDED";
+                // note, it looks like if it is unoccupied but completed just call set_state(StateKnightOccupyEnemyBuilding);
               }else{
                 Log::Debug["serf"] << "inside Serf::handle_free_walking_state_dest_reached(), a knight has reached a flag with an enemy civilian building, BURNING IT!";
                 pillage_building->burnup();
@@ -4162,6 +4163,7 @@ Serf::handle_free_walking_common() {
         Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy building of type " << NameBuilding[pillage_building->get_type()] << " at pos " << pillage_building->get_position() << ", considering burning it";
         if (pillage_building->is_military()){
           Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy military building, NEED TO ADD EXTRA LOGIC TO OCCUPY IT EMPY AND INACTIVE UNDEFENDED";
+          // note, it looks like if it is unoccupied but completed just call set_state(StateKnightOccupyEnemyBuilding);
         }else{
           Log::Debug["serf"] << "inside Serf::handle_free_walking_common(), a knight has reached a flag with an enemy civilian building, BURNING IT!";
           pillage_building->burnup();

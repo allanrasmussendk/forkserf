@@ -225,6 +225,9 @@ pathfinder_map(Map *map, MapPos start, MapPos end, const Road *building_road) {
 //   if the target is a building, the building's flag should be used as the end pos!!!
 //
 // note that this ignores terrain height heuristic
+//
+// note that this does not use caching like the ai_pathfinder does!
+//
 Road
 pathfinder_freewalking_serf(Map *map, MapPos start, MapPos end, int max_dist) {
   //Log::Debug["pathfinder.cc"] << "inside pathfinder_freewalking_serf, start pos " << start << ", dest pos " << end << ", max_dist " << max_dist << ", remember this is a REVERSE SEARCH";

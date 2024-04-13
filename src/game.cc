@@ -293,11 +293,12 @@ Game::update_knight_morale() {
 
 void
 Game::update_rally_defenders() {
-  mutex_lock("Game::update_rally_defenders");
+  // is it necessary to lock mutex here?  trying without it
+  //mutex_lock("Game::update_rally_defenders");
   for (Player *player : players) {
     player->update_rally_defenders();
   }
-  mutex_unlock();
+  //mutex_unlock();
 }
 
 typedef struct UpdateInventoriesData {
@@ -2383,7 +2384,14 @@ Game::demolish_flag_(MapPos pos) {
   }
 
   Flag *flag = flags[map->get_obj_index(pos)];
+  if (flag == nullptr){
+    Log::Error["game.cc"] << "inside Game::demolish_flag_ with pos " << pos << ", flag is nullptr but this is the only function that should be removing flags!";
+    //pause;
+    //return false;
+    throw ExceptionFreeserf("inside Game::demolish_flag_, flag is nullptr but this is the only function that should be removing flags!");
+  }
   if (flag->has_building()) {
+    Log::Error["game.cc"] << "inside Game::demolish_flag_ with pos " << pos << ", Failed to demolish flag with building.  crashing!";
     throw ExceptionFreeserf("Failed to demolish flag with building.");
   }
 

@@ -267,6 +267,12 @@ AI::update_buildings() {
 	  }
 
 	  MapPos pos = building->get_position();
+    // apr13 2024 - got a crash here where building->get_position() returned bad_map_pos instead of a valid pos, not sure why
+    //  for now, at least skip any buildings with bad_map_pos
+    if (pos == bad_map_pos){
+      AILogError["util_update_buildings"] << "ERROR - building->get_position() returned bad_map_pos as its position!  skipping this building";
+      continue;
+    }
 	  MapPos flag_pos = map->move_down_right(building->get_position());
     // saw a weird exception where building 'type' was... 10117???  if this keeps happening start dumping building type before it crashes
     // again, same deal.  adding debugging
@@ -281,11 +287,11 @@ AI::update_buildings() {
     // 5th, knight hut stub road, had a spiderweb road built to it
     // 6th, can't tell.  
     // bypassing this error for now
-    AILogDebug["util_update_buildings"] << "debug has a building of type " << type << " at pos " << pos << ", with flag_pos " << flag_pos;
     if (type > Building::TypeCastle){
       AILogError["util_update_buildings"] << "RECURRING BUG! has a building of invalid type " << type << " at pos " << pos << ", with flag_pos " << flag_pos << "! bypassing error";
       continue;
     }
+    AILogDebug["util_update_buildings"] << "debug has a building of type " << type << " at pos " << pos << ", with flag_pos " << flag_pos;
 
 	  //AILogVerbose["util_update_buildings"] << "has a building of type " << NameBuilding[type] << " at pos " << pos << ", with flag_pos " << flag_pos;
 
