@@ -193,6 +193,10 @@ class Serf : public GameObject {
   // ultimately, get rid of the union entirely as it is cumbersome and memory is plentiful these days
   MapPos attack_target_pos;
 
+  // support interception, helps to know who is being targeted for interception
+  //  so the interception can be called off if that serf is already dead
+  int intercept_serf_index;
+
   union s {
     struct {
       unsigned int inv_index; /* E */
@@ -429,6 +433,9 @@ class Serf : public GameObject {
   //DEBUG stuck serfs issue, provide the associated Flag index the serf is supposedly at
   int debug_get_idle_on_path_flag() const { return s.idle_on_path.flag; }
   void debug_set_pos(MapPos new_pos) { pos = new_pos; }
+
+  void set_intercept_serf_index(int serf_index) { intercept_serf_index = serf_index; }
+  //int get_intercept_serf_index() { return intercept_serf_index; }
 
   int get_animation() const { return animation; }
   int get_counter() const { return counter; }

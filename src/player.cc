@@ -114,6 +114,7 @@ Player::Player(Game* game, unsigned int index)
 
   building_attacked = 0;
   target_pos = bad_map_pos;
+  intercept_serf_index = -1;
   knights_attacking = 0;
 
   reset_food_priority();
@@ -603,6 +604,95 @@ Player::knights_available_for_attack(MapPos pos) {
   return total_attacking_knights;
 }
 
+// check the area in a ?? tile radius around the specified pos
+//  (which should be a friendly building pos) and find the first
+//  knight, if any, who is free to be sent to intercept.  Store the
+//  building index of the sending building as attacking_buildings[0]
+bool
+Player::knight_available_for_intercept(MapPos center_pos) {
+  // Reset counters.
+  for (int i = 0; i < 4; i++) {
+    attacking_knights[i] = 0;
+  }
+
+  PMap map = game->get_map();
+
+  const int _spiral_dist[49] = { 1, 7, 19, 37, 61, 91, 127, 169, 217, 271, 331, 397,
+    469, 547, 631, 721, 817, 919, 1027, 1141, 1261, 1387, 1519, 1657, 1801, 1951,
+    2107, 2269, 2437, 2611, 2791, 2977, 3169, 3367, 3571, 3781, 3997, 4219, 4447,
+    4681, 4921, 5167, 5419, 5677, 5941, 6211, 6487, 6769 };
+  const int min_level_hut[] = { 1, 1, 2, 2, 3 };
+  const int min_level_tower[] = { 1, 2, 3, 4, 6 };
+  const int min_level_fortress[] = { 1, 3, 6, 9, 12 };
+
+  bool found_interceptor = false;
+
+  for (int i = 0; i < _spiral_dist[16]; i++) { 
+    MapPos pos = map->pos_add_extended_spirally(center_pos, i);
+
+    // these checks should probably be combined into a dedicated function 
+    if (map->get_owner(pos) != index) { continue; }
+    if (!map->has_building(pos))      { continue; }
+    Building *building = game->get_building_at_pos(pos);
+    if (building == nullptr)          { continue; }
+    if (!building->is_done())         { continue; }
+    if (building->is_burning())       { continue; }
+    if (!building->is_military())     { continue; }
+    if (!building->has_serf())        { continue; }
+    if (!building->is_active())       { continue; }
+
+    MapPos building_pos = building->get_position();
+    Building::Type building_type = building->get_type();
+    int building_index = building->get_index();
+
+    // if this military building is already under siege it cannot send knights out to intercept now
+    MapPos flag_pos = map->move_down_right(building_pos);
+    if (map->has_serf(flag_pos)) {
+      Serf *serf = game->get_serf_at_pos(flag_pos);
+      if (serf == nullptr)            { continue; }
+      if (serf->get_owner() != index) { continue; }
+    }
+
+    // should castle be allowed to intercept?  It seems like it should be, but because of limited
+    //  serfs-out queue it could cause problems where knight can't come out fast enough to intercept
+    if (building_type == Building::TypeCastle){ continue; }
+
+    const int *min_level = NULL;
+    switch (building_type) {
+      case Building::TypeHut: min_level = min_level_hut; break;
+      case Building::TypeTower: min_level = min_level_tower; break;
+      case Building::TypeFortress: min_level = min_level_fortress; break;
+      default: NOT_REACHED(); break;
+    }
+
+    // verify there are free knights to send
+    size_t state = building->get_threat_level();
+    int knights_present = building->get_knight_count();
+    if (knights_present - min_level[knight_occupation[state] & 0xf] < 1){
+      continue;
+    }
+
+    // do NOT do the option_CheckPathBeforeAttack sanity check
+    //  as the interception logic will pathfind the way anyway
+    //  THOUGH it would be wise to add the convolution disqualifier
+    //  check to that logic!
+
+    found_interceptor = true;
+    attacking_buildings[0] = building_index;
+    attacking_building_count = 1;
+    attacking_knights[0] = 1;
+    break;
+    
+  }
+
+  if (found_interceptor){ 
+    return true;
+  }
+
+  return false;
+
+}
+
 void
 Player::start_attack() {
   Log::Debug["player.cc"] << "inside Player::start_attack";
@@ -702,11 +792,8 @@ Player::start_attack() {
         // sanity check
         if (target_pos == bad_map_pos){
           Log::Error["player.cc"] << "inside Player::start_attack, is_interception is true, but target_pos is bad_map_pos!  crashing";
-          throw ExceptionFreeserf("nside Player::start_attack, is_interception is true, but target_pos is bad_map_pos!  crashing");
+          throw ExceptionFreeserf("inside Player::start_attack, is_interception is true, but target_pos is bad_map_pos!  crashing");
         }
-        // limit one knight being sent to intercept, for now
-        Log::Debug["player.cc"] << "inside Player::start_attack, is_interception is true, only sending one knight out.  returning early";
-        return;
       }else{
         // normal behavior
         target->set_under_attack_new();
@@ -730,6 +817,17 @@ Player::start_attack() {
       /* Send this serf off to fight. */
       //def_serf->send_off_to_fight(dist_col, dist_row, target->get_position());
       def_serf->send_off_to_fight(dist_col, dist_row, target_pos);
+
+      if (is_interception){
+        // store intercept target
+        def_serf->set_intercept_serf_index(intercept_serf_index);
+        // limit one knight being sent to intercept, for now
+        Log::Debug["player.cc"] << "inside Player::start_attack, is_interception is true, only sending one knight out.  returning early";
+        return;
+      }
+
+      // keep this clear to avoid causing previous interceptions to affect normal attacks
+      def_serf->set_intercept_serf_index(-1);
 
       knights_attacking -= 1;
       if (knights_attacking == 0) return;
@@ -1175,7 +1273,7 @@ Player::update_rally_defenders() {
   // THIS CLOCK IS CPU CYCLE BASED AND NOT REAL TIME!!!!
   std::clock_t start = std::clock();
   double duration;
-  int enemies_considered = 0;
+  int threatening_knights_considered = 0;
   int calls_to_knights_available_for_attack = 0;
   int attack_paths_considered = 0;
   int intercept_paths_considered = 0;
@@ -1270,9 +1368,17 @@ Player::update_rally_defenders() {
       MapPos predicted_pos = predicted_path.get_source();
       for (Direction predicted_dir : predicted_path.get_dirs()){
         if (map->get_owner(predicted_pos) == index){
-          Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", a freewalking enemy knight was found at pos " << serf->get_pos() << " whose predicted path passes through our borders at pos " << predicted_pos << ", adding to threatening_knights list";
-          threatening_knights.push_back(serf);
-          enemies_considered++;
+          Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", a freewalking enemy knight was found at pos " << serf->get_pos() << " whose predicted path passes through our borders at pos " << predicted_pos;
+          // if not already on list, add to list
+          if (std::find(threatening_knights.begin(), threatening_knights.end(), serf) == threatening_knights.end()){
+            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", a new threatening_knight was found at pos " << serf->get_pos() << ", adding to threatening_knights list";
+            threatening_knights.push_back(serf);
+            threatening_knights_considered++;
+            // store the threatening_knight's index to be included in the interceptor's variables
+            intercept_serf_index = serf->get_index();
+          }else{
+            Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", threatening_knight at pos " << serf->get_pos() << ", is already on the threatening_knights list, skipping him";
+          }
           break;
         }
         //Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", following predicted path in dir " << NameDirection[predicted_dir];
@@ -1313,6 +1419,9 @@ Player::update_rally_defenders() {
       const int last_predicted_path_index = predicted_path_positions.size() - 1;
 
       int predicted_path_index = predicted_path.get_length() * ignore_initial_portion;
+
+      bool found_solution = false;
+
       while (true){
 
         // if this is nearly the last pos, just use the last pos instead
@@ -1327,7 +1436,8 @@ Player::update_rally_defenders() {
 
         // if any excess knights in range...
         calls_to_knights_available_for_attack++;
-        if (knights_available_for_attack(intercept_pos) > 0){
+        //if (knights_available_for_attack(intercept_pos) > 0){
+        if (knight_available_for_intercept(intercept_pos)){
           Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", plotting intercept pos for threatening knight at pos " << serf->get_pos() << ", found " << attacking_building_count << " attacking_buildings within range of intercept_pos " << intercept_pos << ", checking for acceptable intercept paths using pathfinder";
           // ...plot a path and see if they can actually intercept in time
 
@@ -1384,13 +1494,18 @@ Player::update_rally_defenders() {
               // this is where they are actually sent
               target_pos = intercept_pos;
               Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", calling start_attack function to intercept an attacker headed for our building at pos " << attack_target_pos << " with type " << NameBuilding[building_attacked_building->get_type()] << ".  Interception pos: " << target_pos;
+              found_solution = true;
               start_attack();
               break;
             }
             // otherwise, check next building
             Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", attacking_building at pos " << attacking_building->get_position() << " intercept tile_dist " << intercept_path.get_length() << " to intercept_pos " << intercept_pos << " is not within threshold, rejecting it";
-          }
+          } // for each attacking building
         } // if any excess knights available within range of intercept_pos
+
+        if (found_solution){
+          break;
+        }
         
         // if this is the last pos on the predicted attack path (which should be the target_pos), quit
         if (predicted_path_index >= last_predicted_path_index){
@@ -1422,7 +1537,7 @@ Player::update_rally_defenders() {
 
   // time this function for debugging
   duration = (std::clock() - start) / static_cast<double>(CLOCKS_PER_SEC);
-  Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", total run took " << duration << ", enemies_considered " << enemies_considered << ", attack_paths_considered " << attack_paths_considered << ", intercept_paths_considered " << intercept_paths_considered << ", calls_to_knights_available_for_attack " << calls_to_knights_available_for_attack;
+  Log::Debug["player.cc"] << "inside Player::update_rally_defenders for player#" << index << ", total run took " << duration << ", threatening_knights_considered " << threatening_knights_considered << ", attack_paths_considered " << attack_paths_considered << ", intercept_paths_considered " << intercept_paths_considered << ", calls_to_knights_available_for_attack " << calls_to_knights_available_for_attack;
 
 }
 

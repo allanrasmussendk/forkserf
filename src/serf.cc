@@ -326,6 +326,7 @@ Serf::Serf(Game *game, unsigned int index) : GameObject(game, index) {
   tick = 0;
   s = { { 0 } };
   attack_target_pos = bad_map_pos;  // REMEMBER this is never reset, only overwritten, and does not persist savegame!
+  intercept_serf_index = -1;  // REMEMBER this is never reset, only overwritten, and does not persist savegame!
 }
 
 /* Change type of serf and update all global tables
@@ -4148,7 +4149,7 @@ Serf::handle_free_walking_common() {
   // NEED TO ADD LOGIC TO OCCUPY THE BUILDING IF IT IS AN UNOCCUPIED ENEMY MILITARY BUILDING!
   //  but, need to avoid "stealing" it in the case it is an occupied enemy military building
   //  and the occupant comes out to defend.  Add extra logic to handle that.
-  // for not, simply do not burn military buildings
+  // for now, simply do not burn military buildings
   if (state == StateKnightFreeWalking){
     PMap map = game->get_map();
     if (map->has_building(map->move_up_left(pos))
@@ -4320,11 +4321,11 @@ Serf::handle_free_walking_common() {
                 Log::Debug["serf"] << "TODO remove " << other_serf->get_index()
                                    << " from path";
               }
-              Log::Debug["serf.cc"] << "inside Serf::handle_freewalking_common, a serf with index #" << this->get_index() << " and pos " << this->get_pos() << " is causing OTHER SERF #" << other_serf->get_index() << " with pos " << other_serf->get_pos() << " to become lost because... wait counter?";
+              Log::Debug["serf.cc"] << "inside Serf::handle_free_walking_common, a serf with index #" << this->get_index() << " and pos " << this->get_pos() << " is causing OTHER SERF #" << other_serf->get_index() << " with pos " << other_serf->get_pos() << " to become lost because... wait counter?";
               other_serf->set_lost_state();
             }
           } else {
-            Log::Debug["serf.cc"] << "inside Serf::handle_freewalking_common, a serf with index #" << this->get_index() << " and pos " << this->get_pos() << " is causing OTHER SERF #" << other_serf->get_index() << " with pos " << other_serf->get_pos() << " to become lost because... wait counter2?";
+            Log::Debug["serf.cc"] << "inside Serf::handle_free_walking_common, a serf with index #" << this->get_index() << " and pos " << this->get_pos() << " is causing OTHER SERF #" << other_serf->get_index() << " with pos " << other_serf->get_pos() << " to become lost because... wait counter2?";
             other_serf->set_lost_state();
           }
         }
@@ -6279,6 +6280,9 @@ Serf::handle_knight_occupy_enemy_building() {
   counter = 0;
 }
 
+// this function allows a free_walking knight to engage
+//  in combat any enemy knights encountered, otherwise
+//  it runs the normal free_walking_common
 void
 Serf::handle_state_knight_free_walking() {
   uint16_t delta = game->get_tick() - tick;
@@ -6357,6 +6361,29 @@ Serf::handle_state_knight_free_walking() {
             }
           }
         }
+      }
+    }
+
+    // this is probably not the right place for this, but want to try it
+    if (intercept_serf_index > -1){
+      Log::Debug["serf.cc"] << "inside handle_state_knight_free_walking, this knight must be intercepting as the intercept_serf_index " << intercept_serf_index << " is valid, checking to see if his target is still alive";
+      Serf *target_serf = game->get_serf(intercept_serf_index);
+      if (target_serf == nullptr || target_serf->get_type() == Serf::TypeDead){
+        if (target_serf == nullptr){
+          Log::Warn["serf.cc"] << "inside handle_state_knight_free_walking, this knight must be intercepting as the intercept_serf_index " << intercept_serf_index << " is valid, but serf is nullptr!  does that mean he is dead?  assuming he is";
+        }else{
+          if (target_serf->get_type() == Serf::TypeDead){
+            Log::Debug["serf.cc"] << "inside handle_state_knight_free_walking, this knight must be intercepting as the intercept_serf_index " << intercept_serf_index << " is valid, and he is dead!  making this knight lost so he can stop intercepting";
+          }else{
+            NOT_REACHED();
+          }
+        }
+        // unset intercept_serf_index so this doesn't repeat endlessly
+        intercept_serf_index = -1;
+        set_lost_state();
+        return;
+      }else{
+        Log::Debug["serf.cc"] << "inside handle_state_knight_free_walking, this knight must be intercepting as the intercept_serf_index " << intercept_serf_index << " is valid, and he is still alive and at pos " << target_serf->get_pos();
       }
     }
 

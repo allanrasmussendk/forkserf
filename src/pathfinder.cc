@@ -360,10 +360,10 @@ pathfinder_freewalking_serf(Map *map, MapPos start, MapPos end, int max_dist) {
       //    (map->get_obj(new_pos) == Map::ObjectFlag && new_pos != start)) {
         
       if (!map->can_serf_step_into(new_pos)){
-        //Log::Debug["pathfinder.cc"] << "inside pathfinder_freewalking_serf, E  serf CANNOT step from node->pos " << node->pos << " into next pos " << new_pos << " in dir " << d;
+        Log::Debug["pathfinder.cc"] << "inside pathfinder_freewalking_serf, E  serf CANNOT step from node->pos " << node->pos << " into next pos " << new_pos << " in dir " << d;
         continue;
       }
-      //Log::Debug["pathfinder.cc"] << "inside pathfinder_freewalking_serf, E  serf can step from node->pos " << node->pos << " into next pos " << new_pos << " in dir " << d;
+      Log::Debug["pathfinder.cc"] << "inside pathfinder_freewalking_serf, E  serf can step from node->pos " << node->pos << " into next pos " << new_pos << " in dir " << d;
 
       //
       //if ((building_road != nullptr) && building_road->has_pos(map, new_pos) &&

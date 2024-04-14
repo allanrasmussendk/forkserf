@@ -176,6 +176,7 @@ class Player : public GameObject {
   // TODO(Digger): remove it to UI
   int building_attacked;  // remove this entirely and replace with target_pos?
   MapPos target_pos;  // to support interception and new combat logic w/ pillaging
+  int intercept_serf_index;  // to support interception
   int knights_attacking;
   int attacking_building_count;  // this is the index of the last item in attacking_buildings[64] to be considered for this attack, as the array is NOT CLEARED each run
   int attacked_building_flag_pos; // tlongstretch - adding attacked building pos to sanity check pathfinding to it
@@ -257,6 +258,7 @@ class Player : public GameObject {
 
   int promote_serfs_to_knights(int number);
   int knights_available_for_attack(MapPos pos);
+  bool knight_available_for_intercept(MapPos center_pos);
   void start_attack();
   void cycle_knights();
 

@@ -673,6 +673,7 @@ Game::update_inventories() {
           //if (!dest_bld->add_requested_resource(res, false)) {
           int dist_from_inv = dists_from_inv[i];
           //Log::Info["flag"] << "inside Game::update_inventories, about to call dest_bld->add_requested_resource(" << NameResource[res] << ", false, " << dist_from_inv << ") for dest_bld of type " << NameBuilding[dest_bld->get_type()];
+          // apr13 2024 - got crash exception here when building seemed to have invalid pos, owner, was burning?
           if (!dest_bld->add_requested_resource(res, false, dist_from_inv)) {
             throw ExceptionFreeserf("Failed to request resource.");
           }
