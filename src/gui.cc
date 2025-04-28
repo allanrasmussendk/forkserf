@@ -352,7 +352,7 @@ GuiObject::handle_event(const Event *event) {
     bool result = (*fl)->handle_event(&internal_event);
     if (result != 0) {
       // stop checking other floats as one seems to have handled this
-      Log::Debug["gui.cc"] << "inside GuiObject::handle_event for fl with objclass " << int((*fl)->get_objclass()) << " and objtype " << int((*fl)->get_objtype()) << " returning float element result";
+//      Log::Debug["gui.cc"] << "inside GuiObject::handle_event for fl with objclass " << int((*fl)->get_objclass()) << " and objtype " << int((*fl)->get_objtype()) << " returning float element result";
       return result; 
     }else{
       // check next float
