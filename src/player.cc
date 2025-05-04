@@ -1258,7 +1258,7 @@ operator >> (SaveReaderBinary &reader, Player &player)  {
 
   for (int j = 0; j < 23; j++) { // This should not be 24 as Building::TypeNone is not loaded
     reader >> v16;  // 132
-    player.completed_building_count[j + 1] = v16; // + 1 because index 0 is Building::TypeNone, index 1 Building::TypeFisher and so on
+    player.completed_building_count[j + 1] = v16; // The + 1 is because index 0 is Building::TypeNone, index 1 is Building::TypeFisher and so on
   }
   for (int j = 0; j < 23; j++) { // See above
     reader >> v16;  // 178
@@ -1410,9 +1410,10 @@ operator >> (SaveReaderText &reader, Player &player) {
   if (reader.has_value("version")) {
 	  reader.value("version") >> version;
   }
-  // This a attempt correct bad saved game data
-  // Index 0 should have been the number of Building::TypeFisher's, but was number of Building::TypeNone.
-  // This has been fixed in version == 1
+  // This is an attempt to fix incorrect saved game data.
+  // Index 0 should have been the number of Building::TypeFishers, but it was the number of Building::TypeNone.
+  // Note: The number of Building::TypeGoldSmelter was not saved in the saved game, and is therefore lost.
+  // This has been fixed in version == 1.
   int start_index = version == 0 ? 1 : 0;
   int offset = version == 0 ? 0 : 1;
   for (int i = start_index; i < 23; i++) { // This should not be 24 as Building::TypeNone is not loaded
