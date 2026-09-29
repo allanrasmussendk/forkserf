@@ -1633,7 +1633,7 @@ operator >> (SaveReaderText &reader, Map &map) {
 
       reader.value("height")[y*SAVE_MAP_TILE_SIZE+x] >> val;
 //      landscape_tile.height = val & 0x1f;
-      // Some mountain tops are 32. The "val & 0x1f" code will cause them to be change to 0, which will cause the "Failed to draw triangle..." bug.
+      // Some mountain tops are 32. The "val & 0x1f" code will cause them to be changed to 0, which will cause the "Failed to draw triangle..." bug.
       // I can't figure out what the maximum mountain/terrain height is. I assume it to be 32.
       landscape_tile.height = std::min(val, (unsigned int)32);
 
