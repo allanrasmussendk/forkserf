@@ -1508,7 +1508,7 @@ Interface::handle_key_pressed(char key, int modifier) {
           close_message();
         }
     	}
-		break;
+      break;
     }
 
     // new Forkserf debug overlay, highlight items on map and provide misc debug info as needed
