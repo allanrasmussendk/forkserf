@@ -1507,7 +1507,7 @@ Interface::handle_key_pressed(char key, int modifier) {
         if (notification_box != nullptr && notification_box->is_displayed()) {
           close_message();
         }
-    	}
+      }
       break;
     }
 
