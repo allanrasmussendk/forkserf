@@ -1504,6 +1504,9 @@ Interface::handle_key_pressed(char key, int modifier) {
     		open_message();
     	} else {
     		return_from_message();
+        if (notification_box != nullptr && notification_box->is_displayed()) {
+          close_message();
+        }
     	}
 		break;
     }
